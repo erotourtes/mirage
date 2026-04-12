@@ -1,0 +1,166 @@
+ot-jupiter-paper:
+  type: Article
+  title: High-latency, low-bandwidth windowing in the Jupiter collaboration system
+  author:
+    - David A. Nichols
+    - Pavel Curtis
+    - Michael Dixon
+    - John Lamping
+  url:
+    value: https://dl.acm.org/doi/10.1145/215585.215706
+    date: 2026-04-11
+
+ot-introduction-blog:
+  type: Blog
+  title: Understanding and Applying Operational Transformation
+  author: Daniel Spiewak
+  url:
+    value: https://codecommit.com/blog/java/understanding-and-applying-operational-transformation/
+    date: 2026-04-11
+
+ot-small-implementation-blog:
+  type: Blog
+  title: "Operational Transformation: An Introduction"
+  author: Nick Fitzgerald
+  url:
+    value: https://fitzgen.com/2011/03/26/operational-transformation-an-introduction.html
+    date: 2026-04-11
+
+ot-data-consistency-for-p2p:
+  type: Article
+  title: Data consistency for P2P collaborative editing
+  author:
+    - Gérald Oster
+    - Pascal Urso
+    - Pascal Molli
+    - Abdessamad Imine
+  url:
+    value: https://dl.acm.org/doi/10.1145/1180875.1180916
+    date: 2026-04-12
+
+ot-wikipedia:
+  type: Web
+  title: Operational transformation
+  url:
+    value: https://en.wikipedia.org/wiki/Operational_transformation
+    date: 2026-04-12
+
+ot-hacker-news-jospeh-gentle:
+  type: Web
+  title: Collaborative Editing in ProseMirror
+  url:
+    value: https://news.ycombinator.com/item?id=10003918
+    date: 2026-04-12
+
+crdt-yjs-paper:
+  type: Article
+  title: Near Real-Time Peer-to-Peer Shared Editing on Extensible Data Types
+  author:
+    - Petru Nicolaescu
+    - Kevin Jahns
+    - Ralf Klamma
+    - Michael Derntl
+  url:
+    value: https://www.researchgate.net/publication/310212186_Near_Real-Time_Peer-to-Peer_Shared_Editing_on_Extensible_Data_Types
+    date: 2026-04-11
+
+crdt-basic-paper:
+  type: Article
+  title: Conflict-free Replicated Data Types (CRDTs)
+  author:
+    - Nuno Preguiça
+    - Carlos Baquero
+    - Marc Shapiro
+  url:
+    value: https://arxiv.org/abs/1805.06358
+    date: 2026-04-13
+
+crdt-basic-paper-2:
+  type: Article
+  title: Conflict-free Replicated Data Types
+  author:
+    - Marc Shapiro
+    - Nuno Preguiça
+    - Carlos Baquero
+    - Marek Zawirski
+  url:
+    value: https://inria.hal.science/hal-00932836
+    data: 2026-04-13
+
+crdt-tombstones:
+  type: Blog
+  title: "An introduction to Conflict-Free Replicated Data Types; Part 5: Tombstones"
+  author: Lars Hupel
+  url:
+    value: https://lars.hupel.info/topics/crdt/05-tombstones/#2p-sets-are-also-maps
+    date: 2026-04-13
+
+crdt-verification:
+  type: Article
+  title: Verifying strong eventual consistency in distributed systems
+  author:
+    - Victor B. F. Gomes
+    - Martin Kleppmann
+    - Dominic P. Mulligan
+    - Alastair R. Beresford
+  url:
+    value: https://dl.acm.org/doi/10.1145/3133933
+    date: 2026-04-13
+
+crdt-redis:
+  type: Web
+  title: "Under the Hood: Redis CRDTs"
+  url:
+    value: https://redis.io/resources/under-the-hood/
+    date: 2026-04-13
+
+crdt-yjs-typst:
+  type: Web
+  title: Who is using Yjs
+  url:
+    value: https://github.com/yjs/yjs/blob/6909511b5bf5c8ab572fc7d12a2268a4646501b0/README.md?plain=1#L126
+    date: 2026-04-13
+
+crdt-zed:
+  type: Web
+  title: How CRDTs make multiplayer text editing part of Zed's DNA
+  url:
+    value: https://zed.dev/blog/crdts
+    date: 2026-04-18
+
+crdt-g-counter-example:
+  type: Video
+  time-range: 00:01:00-00:32:25
+  runtime: 00:37:00
+  url: https://www.youtube.com/watch?v=OOlnp2bZVRs
+
+concurrency-control-classification:
+  type: Article
+  title: Concurrency control in groupware systems
+  author:
+    - C. A. Ellis
+    - S. J. Gibbs
+  url:
+    value: https://dl.acm.org/doi/10.1145/67544.66963
+    date: 2026-04-12
+
+google-support-sharing:
+  type: Web
+  title: Share files from Google Drive
+  url:
+    value: https://support.google.com/docs/answer/2494822?sjid=11492262890051079160-EU
+    date: 2026-04-12
+
+git-three-way-merge:
+  type: Web
+  title: "3.2 Git Branching - Basic Branching and Merging"
+  url:
+    value: https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging
+    date: 2026-04-13
+
+figma-architecture:
+  type: Web
+  title: How Figma's multiplayer technology works
+  url:
+    value: https://www.figma.com/blog/how-figmas-multiplayer-technology-works/
+    date: 2026-04-18

@@ -1,0 +1,9 @@
+{
+  "tinymist.formatterMode": "typstyle",
+  "tinymist.formatterPrintWidth": 80,
+  "tinymist.formatterIndentSize": 2,
+  "[typst]": {
+    "editor.defaultFormatter": "myriad-dreamin.tinymist",
+    "editor.wordWrap": "on"
+  }
+}

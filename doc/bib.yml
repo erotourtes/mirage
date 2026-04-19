@@ -1,14 +1,29 @@
 ot-jupiter-paper:
-  type: Article
+  type: Conference
   title: High-latency, low-bandwidth windowing in the Jupiter collaboration system
   author:
-    - David A. Nichols
-    - Pavel Curtis
-    - Michael Dixon
-    - John Lamping
+    - Nichols, David A.
+    - Curtis, Pavel
+    - Dixon, Michael
+    - Lamping, John
+  date: 1995-12-01
+  page-range: 111-120
+  page-total: 10
   url:
-    value: https://dl.acm.org/doi/10.1145/215585.215706
+    # value: https://dl.acm.org/doi/10.1145/215585.215706
+    value: https://doi.org/10.1145/215585.215706
     date: 2026-04-11
+  serial-number:
+    doi: "10.1145/215585.215706"
+    isbn: "089791709X"
+  parent:
+    type: Proceedings
+    title: Proceedings of the 8th Annual ACM Symposium on User Interface and Software Technology
+    publisher:
+      name: Association for Computing Machinery
+      location: New York, NY, USA
+    location: Pittsburgh, Pennsylvania, USA
+    series: "UIST '95"
 
 ot-introduction-blog:
   type: Blog
@@ -27,16 +42,31 @@ ot-small-implementation-blog:
     date: 2026-04-11
 
 ot-data-consistency-for-p2p:
-  type: Article
+  type: Conference
   title: Data consistency for P2P collaborative editing
   author:
-    - Gérald Oster
-    - Pascal Urso
-    - Pascal Molli
-    - Abdessamad Imine
+    - Oster, Gérald
+    - Urso, Pascal
+    - Molli, Pascal
+    - Imine, Abdessamad
+  date: 2006-11-04
+  page-range: 259-268
+  page-total: 10
   url:
-    value: https://dl.acm.org/doi/10.1145/1180875.1180916
+    # value: https://dl.acm.org/doi/10.1145/1180875.1180916
+    value: https://doi.org/10.1145/1180875.1180916
     date: 2026-04-12
+  serial-number:
+    doi: "10.1145/1180875.1180916"
+    isbn: "1595932496"
+  parent:
+    type: Proceedings
+    title: Proceedings of the 2006 20th Anniversary Conference on Computer Supported Cooperative Work
+    publisher:
+      name: Association for Computing Machinery
+      location: New York, NY, USA
+    location: Banff, Alberta, Canada
+    series: "CSCW '06"
 
 ot-wikipedia:
   type: Web
@@ -44,6 +74,15 @@ ot-wikipedia:
   url:
     value: https://en.wikipedia.org/wiki/Operational_transformation
     date: 2026-04-12
+
+ot-google-docs:
+  type: Blog
+  title: "What's different about the new Google Docs: Making collaboration fast"
+  date: 2010-09-23
+  author: John Day-Richter
+  url:
+    value: https://drive.googleblog.com/2010/09/whats-different-about-new-google-docs.html
+    date: 2026-04-19
 
 ot-hacker-news-jospeh-gentle:
   type: Web
@@ -53,39 +92,65 @@ ot-hacker-news-jospeh-gentle:
     date: 2026-04-12
 
 crdt-yjs-paper:
-  type: Article
+  type: Conference
   title: Near Real-Time Peer-to-Peer Shared Editing on Extensible Data Types
   author:
-    - Petru Nicolaescu
-    - Kevin Jahns
-    - Ralf Klamma
-    - Michael Derntl
+    - Nicolaescu, Petru
+    - Jahns, Kevin
+    - Derntl, Michael
+    - Klamma, Ralf
+  date: 2016-11
+  page-range: 39-49
+  page-total: 11
   url:
-    value: https://www.researchgate.net/publication/310212186_Near_Real-Time_Peer-to-Peer_Shared_Editing_on_Extensible_Data_Types
+    # value: https://www.researchgate.net/publication/310212186_Near_Real-Time_Peer-to-Peer_Shared_Editing_on_Extensible_Data_Types
+    value: https://doi.org/10.1145/2957276.2957310
     date: 2026-04-11
+  serial-number:
+    doi: "10.1145/2957276.2957310"
+    isbn: "9781450342766"
+  parent:
+    type: Proceedings
+    title: Proceedings of the 2016 ACM International Conference on Supporting Group Work
+    publisher:
+      name: Association for Computing Machinery
+      location: New York, NY, USA
+    location: Sanibel Island, Florida, USA
+    series: "GROUP '16"
 
 crdt-basic-paper:
   type: Article
   title: Conflict-free Replicated Data Types (CRDTs)
   author:
-    - Nuno Preguiça
-    - Carlos Baquero
-    - Marc Shapiro
+    - Preguiça, Nuno M.
+    - Baquero, Carlos
+    - Shapiro, Marc
+  date: 2018-05
   url:
-    value: https://arxiv.org/abs/1805.06358
+    # value: https://arxiv.org/abs/1805.06358
+    value: https://doi.org/10.48550/arXiv.1805.06358
     date: 2026-04-13
+  serial-number:
+    arxiv: "1805.06358"
 
 crdt-basic-paper-2:
-  type: Article
+  type: Report
   title: Conflict-free Replicated Data Types
   author:
-    - Marc Shapiro
-    - Nuno Preguiça
-    - Carlos Baquero
-    - Marek Zawirski
+    - Shapiro, Marc
+    - Preguiça, Nuno
+    - Baquero, Carlos
+    - Zawirski, Marek
+  date: 2011-08-07
   url:
-    value: https://inria.hal.science/hal-00932836
-    data: 2026-04-13
+    value: https://inria.hal.science/inria-00609399v2
+    date: 2026-04-13
+  publisher:
+    name: INRIA
+  serial-number:
+    report: RR-7687
+    hal: inria-00609399v2
+  page-total: 18
 
 crdt-tombstones:
   type: Blog
@@ -99,13 +164,27 @@ crdt-verification:
   type: Article
   title: Verifying strong eventual consistency in distributed systems
   author:
-    - Victor B. F. Gomes
-    - Martin Kleppmann
-    - Dominic P. Mulligan
-    - Alastair R. Beresford
+    - Gomes, Victor B. F.
+    - Kleppmann, Martin
+    - Mulligan, Dominic P.
+    - Beresford, Alastair R.
+  date: 2017-10
   url:
-    value: https://dl.acm.org/doi/10.1145/3133933
+    # value: https://dl.acm.org/doi/10.1145/3133933
+    value: https://doi.org/10.1145/3133933
     date: 2026-04-13
+  serial-number:
+    doi: "10.1145/3133933"
+    serial: "109"
+  page-total: 28
+  parent:
+    type: Periodical
+    title: Proc. ACM Program. Lang.
+    volume: 1
+    issue: OOPSLA
+    publisher:
+      name: Association for Computing Machinery
+      location: New York, NY, USA
 
 crdt-redis:
   type: Web
@@ -138,11 +217,26 @@ concurrency-control-classification:
   type: Article
   title: Concurrency control in groupware systems
   author:
-    - C. A. Ellis
-    - S. J. Gibbs
+    - Ellis, C. A.
+    - Gibbs, S. J.
+  date: 1989-06
+  page-range: 399-407
+  page-total: 9
   url:
-    value: https://dl.acm.org/doi/10.1145/67544.66963
+    # value: https://dl.acm.org/doi/10.1145/67544.66963
+    value: https://doi.org/10.1145/66926.66963
     date: 2026-04-12
+  serial-number:
+    doi: "10.1145/66926.66963"
+    issn: "0163-5808"
+  parent:
+    type: Periodical
+    title: SIGMOD Rec.
+    volume: 18
+    issue: 2
+    publisher:
+      name: Association for Computing Machinery
+      location: New York, NY, USA
 
 google-support-sharing:
   type: Web

@@ -25,6 +25,9 @@ The implementation should meet the following requirements:
 
 - Guaranteed convergence. If all replicas receive the same set of updates, they
   must eventually reach the same state.
+- Preservation of user intent. Concurrent edits should not be silently lost. The
+  merged result should reflect what users would "reasonably" expect from
+  applying their edits
 - High interactivity. Local changes should be applied with very low latency,
   ideally below $tilde.basic 100$ms.
 - Real-time collaboration. Remote updates should propagate quickly enough for
@@ -36,7 +39,6 @@ The implementation should meet the following requirements:
 - Tolerance to network faults and offline editing. The system should continue to
   operate under message delays, reordering, temporary disconnection, and offline
   work.
-- Preservation of user edits. Concurrent edits should not be silently lost.
 - Scalability. The system should remain practical for a large number of
   participants ($gt 100$).
 
@@ -52,15 +54,15 @@ categories:
 - *Optimistic:* updates are immediately visible to the user in the local copy,
   while conflicts caused by concurrent edits are resolved later. This makes
   optimistic approaches better suited to high-latency communication
-  environments. @ot-jupiter-paper
+  environments. @ot-jupiter-paper[p. 112]
 
 Pessimistic algorithms are mature and widely used in practice. Common techniques
 include locking, transactions, single active participation, dependency detection
-@concurrency-control-classification.
+@concurrency-control-classification[p. 401].
 
 Optimistic approaches are more common in modern collaborative editing research.
 Two of the most prominent families are Operational Transformation (OT)
-(@concurrency-control-classification, @ot-introduction-blog) and Conflict-free
+@concurrency-control-classification, @ot-introduction-blog and Conflict-free
 Replicated Data Types (CRDTs) @crdt-yjs-paper. A related optimistic
 synchronization technique is three-way merge, widely used in version control
 systems, such as git @git-three-way-merge.
@@ -135,10 +137,10 @@ Algorithmic complexity is not the only reason why OT is less suitable for
 peer-to-peer communication. Some decentralized OT protocols use metadata such as
 vector clocks to track causality between operations. Since this metadata may
 grow with the number of participants, such approaches become less attractive for
-large or dynamic peer-to-peer groups @ot-data-consistency-for-p2p.
+large or dynamic peer-to-peer groups @ot-data-consistency-for-p2p[p. 259].
 
-OT is historically associated with products like Google Docs @ot-wikipedia; the
-product currently limits the number of concurrent users to 100
+OT is historically associated with products like Google Docs @ot-google-docs;
+the product currently limits the number of concurrent users to 100
 @google-support-sharing.
 
 
@@ -163,7 +165,7 @@ only move upward in the partial order, and to guarantee convergence the merge
 operation (_join_ function) must be
 - commutative: $x union.sq y = y union.sq x$
 - associative: $x union.sq (y union.sq z) = (x union.sq y) union.sq z$
-- idempotent: $x union.sq x = x$ @crdt-basic-paper
+- idempotent: $x union.sq x = x$ @crdt-basic-paper-2[p. 6]
 
 A common example is the grow-only counter (G-Counter) @crdt-g-counter-example.
 Consider a distributed service that stores the number of likes on a post. To
@@ -179,7 +181,7 @@ be lost:
 Thus, a single integer is not sufficient to represent concurrent increments.
 
 To solve this problem, a G-Counter stores a vector of per-replica counters,
-where each replica increments only its own component @crdt-basic-paper-2.
+where each replica increments only its own component @crdt-basic-paper-2[p. 11].
 - replica $a$: $[0, 0] arrow [1, 0]$
 - replica $b$: $[0, 0] arrow [0, 1]$
 - after synchronization, the states are merged componentwise using $max$:

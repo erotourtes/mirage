@@ -4,7 +4,7 @@ set -l current_file_path (status current-filename)
 set -l current_file_dir (dirname $current_file_path)
 set -l root_dir (realpath "$current_file_dir/..")
 
-set -l paths (fd . --type file -e typ "$current_file_dir/../doc" -a)
+set -l paths (fd . --type file -e typ "$current_file_dir/../thesis" -a)
 
 echo "Formatting files:"
 for path in $paths

@@ -134,10 +134,12 @@ Joseph Gentle (former Google Wave OT engineer) also noted:
 ]
 
 Algorithmic complexity is not the only reason why OT is less suitable for
-peer-to-peer communication. Some decentralized OT protocols use metadata such as
-vector clocks to track causality between operations. Since this metadata may
-grow with the number of participants, such approaches become less attractive for
-large or dynamic peer-to-peer groups @ot-data-consistency-for-p2p[p. 259].
+peer-to-peer communication. In decentralized settings, OT often requires extra
+causality-tracking and coordination metadata to determine when operations are
+concurrent and how they should be transformed. As the number of participants
+grows, maintaining this metadata and preserving consistent transformation
+behavior becomes more difficult. This makes OT less attractive for large or
+highly dynamic peer-to-peer groups @ot-data-consistency-for-p2p[p. 259].
 
 OT is historically associated with products like Google Docs @ot-google-docs;
 the product currently limits the number of concurrent users to 100
@@ -264,6 +266,10 @@ suitable choice. Three-way merge is useful as a conceptual optimistic baseline,
 but it is better suited to asynchronous version-control workflows. OT is a
 strong option for centralized real-time editors, but it is a weaker fit when the
 goal is a decentralized system without a permanent coordination server.
+
+= Implementation
+
+
 
 
 #bibliography("./bib.yml")

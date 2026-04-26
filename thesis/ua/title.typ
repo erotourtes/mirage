@@ -5,14 +5,11 @@
 #let default-title-meta = (
   university-line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ “КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО”],
   faculty: [Факультет інформатики та обчислювальної техніки\ Кафедра обчислювальної техніки],
-  head-name: [Артем Волокита],
   project-kind: [Дипломний проєкт],
   degree-line: [на здобуття ступеня бакалавра\ за освітньо-професійною програмою “Інженерія програмного забезпечення\ комп’ютерних систем”\ спеціальності 121 “Інженерія програмного забезпечення”],
-  city: [Київ],
-  year: [2026],
 )
 
-#let title-page(
+#let title_page(
   meta: default-title-meta,
   topic: none,
   student-course: none,
@@ -21,6 +18,9 @@
   advisor-name: none,
   consultant-name: none,
   reviewer-name: none,
+  head-name: none,
+  city: none,
+  year: none,
   student-female: false,
 ) = {
   title_page_frame[
@@ -43,11 +43,11 @@
             align: horizon,
             [ #signature_field() ],
             [
-              #under_field(start: 20mm)[ #meta.head-name ]
+              #under_field(start: 20mm)[ #head-name ]
             ],
           )
           #align(right)[
-            #year_field()[#meta.year]
+            #year_field()[#year]
           ]
         ]
       ]
@@ -153,7 +153,7 @@
       ]
 
       #v(1fr)
-      #align(center)[#meta.city – #meta.year р.]
+      #align(center)[#city – #year р.]
     ]
   ]
 }

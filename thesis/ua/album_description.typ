@@ -41,7 +41,7 @@
   generated
 }
 
-#let album-description-page(
+#let album_description_page(
   topic: [],
   group: [],
   implementedBy: [todo],
@@ -86,37 +86,8 @@
     #table(
       columns: (12mm, 10mm, 47mm, 60mm, 12mm, 14mm, 30mm),
       rows: (
-        20mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
-        5.3mm,
+        25mm,
+        ..range(30).map(_ => 5.3mm),
       ),
       stroke: 0.45pt,
       inset: (x: 1.5mm, y: 1.3mm),
@@ -136,7 +107,7 @@
     #v(-4.9mm)
     #table(
       columns: (12mm, 10mm, 18mm, 15mm, 10mm, 70mm, 5mm, 5mm, 5mm, 17mm, 1fr),
-      rows: (6mm, 6mm, 6mm, 6mm, 6mm, 16mm),
+      rows: (5mm, 5mm, 5mm, 5mm, 5mm, 16mm),
       stroke: 1.5pt,
       inset: (x: 1.2mm, y: 0.6mm),
       align: horizon + left,

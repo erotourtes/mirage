@@ -22,23 +22,23 @@
   university-line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ "КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО"],
   faculty: [Факультет інформатики та обчислювальної техніки\ Кафедра обчислювальної техніки],
   education-level: [Рівень вищої освіти - перший (бакалавр)\ Освітньо-професійна програма\ "Інженерія програмного забезпечення комп’ютерних систем"\ спеціальності 121 “Інженерія програмного забезпечення”],
-  head-name: [Артем Волокита],
-  year: [2026],
 )
 
-#let assignment-pages(
+#let assignment_pages(
   meta: default-assignment-meta,
   topic: none,
   student-name: none,
   student-name-genitive: none,
   advisor-name: none,
   advisor-line: none,
+  head-name: none,
   order-line: [todo],
   due-date: [todo],
   input-data: [технічна документація, теоретичні дані.],
   graphics: [todo],
   norm-controller: [],
   issue-date: [todo],
+  year: none,
   calendar: (
     ([Затвердження теми проекту], [], []),
     ([Вивчення та аналіз завдання], [], []),
@@ -84,11 +84,11 @@
           align: horizon,
           [ #signature_field() ],
           [
-            #under_field(start: 20mm)[ #meta.head-name ]
+            #under_field(start: 20mm)[ #head-name ]
           ],
         )
         #align(right)[
-          #year_field()[#meta.year]
+          #year_field()[#year]
         ]
       ]
     ]
@@ -147,7 +147,7 @@
         columns: (37mm, 1fr, 34mm, 34mm),
         rows: (auto, auto, 9mm, 9mm),
         stroke: 0.6pt,
-        inset: 2pt,
+        inset: 5pt,
         align: horizon + center,
         table.cell(rowspan: 2)[Розділ],
         table.cell(rowspan: 2)[Консультант],

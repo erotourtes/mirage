@@ -1,5 +1,6 @@
 #import "title.typ": title-page
 #import "annotation.typ": annotation-page
+#import "album_description.typ": album-description-page
 #import "assignment.typ": assignment-pages
 
 #let thesis = (
@@ -32,7 +33,10 @@
   advisor-sign-name: thesis.advisor-sign-name,
 )
 
-#annotation-page()
+#album-description-page(
+  topic: thesis.topic,
+  group: thesis.student-group,
+)
 
 
 = section 1

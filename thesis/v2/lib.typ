@@ -22,7 +22,7 @@
   ),
   numbering: none,
 )[
-  #set text(font: font-main, lang: "uk", 14pt)
+  #set text(font: font-main, lang: "ua", 14pt)
   #body
 ]
 
@@ -37,7 +37,7 @@
   ),
   numbering: none,
 )[
-  #set text(font: font-main, lang: "uk", 14pt)
+  #set text(font: font-main, lang: "ua", 14pt)
   #set par(justify: true, leading: 0.62em)
   #body
 ]

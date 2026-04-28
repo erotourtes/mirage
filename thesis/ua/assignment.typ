@@ -1,4 +1,5 @@
-#import "lib.typ": signature_field, title_page_frame, under_field, year_field
+#import "lib/lib.typ": signature_field, under_field, year_field
+#import "lib/page.typ": title_page_frame
 
 #let task-list(start: 1, body) = {
   set enum(

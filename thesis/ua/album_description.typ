@@ -1,4 +1,4 @@
-#import "lib.typ": standard_page_frame
+#import "lib/page.typ": standard_page_frame
 
 #let header_cell(body) = table.cell(align: center + horizon)[
   #{

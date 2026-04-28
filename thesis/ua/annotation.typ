@@ -1,4 +1,4 @@
-#import "lib.typ": title_page_frame
+#import "lib/page.typ": title_page_frame
 
 #let annotation-page(
   text-ua: [todo],

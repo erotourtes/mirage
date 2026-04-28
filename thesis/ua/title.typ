@@ -1,6 +1,5 @@
-#import "lib.typ": (
-  gendered, signature_field, title_page_frame, under_field, year_field,
-)
+#import "lib/lib.typ": gendered, signature_field, under_field, year_field
+#import "lib/page.typ": title_page_frame
 
 #let default-title-meta = (
   university-line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ “КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО”],

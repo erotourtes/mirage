@@ -4,6 +4,9 @@
 #import "technical_task/outline.typ": (
   technical_task_outline_heading, technical_task_outline_page,
 )
+#import "report/title.typ": report_title_page
+#import "report/outline.typ": report_outline_page
+#import "report/abbreviations.typ": report-abbreviations-page
 #import "annotation.typ": annotation-page
 #import "album_description.typ": album_description_page
 #import "assignment.typ": assignment_pages
@@ -27,6 +30,7 @@
   advisor-name-initials: [Долголенко О. М.],
   advisor-sign-name: [Олександр ДОЛГОЛЕНКО],
   technical-task-code: [ІАЛЦ.467200.002 ТЗ],
+  report-code: [ІАЛЦ.467200.003 ПЗ],
 )
 
 #title_page(
@@ -103,4 +107,22 @@
 
 #technical_task_content(
   document-code: thesis.technical-task-code,
+)
+
+#report_title_page(
+  topic: thesis.topic,
+  city: document-meta.city,
+  year: document-meta.year,
+)
+
+#report_outline_page(
+  topic: thesis.topic,
+  group: thesis.student-group,
+  document-code: thesis.report-code,
+  implemented-by: thesis.student-name-initials,
+  reviewed-by: thesis.advisor-name-initials,
+)
+
+#report-abbreviations-page(
+  document-code: thesis.report-code,
 )

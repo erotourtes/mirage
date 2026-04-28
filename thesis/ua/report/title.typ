@@ -1,20 +1,18 @@
 #import "../lib/lib.typ": offset-right
 #import "../lib/page.typ": title_page_frame
 
-#let technical-task-title-page(
+#let report_title_page(
   topic: none,
   city: none,
   year: none,
 ) = {
   title_page_frame(right: offset-right)[
-    #set par(justify: false)
-
     #v(68mm)
     #align(center)[
       #text(
         weight: "bold",
         size: 18pt,
-      )[ТЕХНІЧНЕ ЗАВДАННЯ\ ДО ДИПЛОМНОГО ПРОЄКТУ]
+      )[ПОЯСНЮВАЛЬНА ЗАПИСКА\ ДО ДИПЛОМНОГО ПРОЄКТУ]
     ]
 
     #v(5mm)

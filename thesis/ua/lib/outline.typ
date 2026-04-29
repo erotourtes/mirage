@@ -58,6 +58,7 @@
 }
 
 #let outline_page(
+  document_name,
   topic: none,
   group: none,
   document_code: [todo],
@@ -91,6 +92,7 @@
     }
   }
   let first_footer = footer_f2(
+    document_name,
     topic: topic,
     group: group,
     document_code: document_code,

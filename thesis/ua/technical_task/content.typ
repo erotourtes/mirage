@@ -1,4 +1,4 @@
-#import "lib/main.typ": (
+#import "lib/index.typ": (
   technical_task_labels, technical_task_outline_page, technical_task_page,
   technical_task_title_page,
 )
@@ -19,6 +19,7 @@
   )
 
   technical_task_outline_page(
+    thesis.document.codes.technical_task.long_form,
     topic: thesis.topic,
     group: thesis.student.group,
     document_code: full_document_code(thesis.document.codes.technical_task),

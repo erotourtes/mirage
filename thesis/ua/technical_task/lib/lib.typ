@@ -10,6 +10,7 @@
 )
 
 #let technical_task_outline_page(
+  document_name,
   topic: none,
   group: none,
   document_code: [todo],
@@ -19,6 +20,7 @@
   approved_by: [],
 ) = {
   outline_page(
+    document_name,
     topic: topic,
     group: group,
     document_code: document_code,

@@ -1,6 +1,6 @@
 #import "../lib/lib.typ": signature_field, under_field, year_field
 #import "../lib/page.typ": cover_page
-#import "../report/lib/main.typ": report_labels
+#import "../report/lib/index.typ": report_labels
 
 #let task_list(start: 1, body) = {
   set enum(

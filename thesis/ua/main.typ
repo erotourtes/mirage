@@ -1,6 +1,7 @@
 #import "lib/template.typ": thesis_template
 #import "technical_task/content.typ": technical_task_content
 #import "report/content.typ": report_content, report_section_heading
+#import "appendix/content.typ": d1_content, d2_content, d3_content, d4_content
 
 #let thesis = (
   topic: [Модуль синхронізації текстових даних у розподілених системах],
@@ -27,17 +28,17 @@
       d1: (
         number: [ІАЛЦ.467200.004],
         short_form: [Д1],
-        long_form: [Структурна схема],
+        long_form: [Компоненти застосунка\ (структурна схема)],
       ),
       d2: (
         number: [ІАЛЦ.467200.005],
         short_form: [Д2],
-        long_form: [Функціональна схема],
+        long_form: [Діаграма сутність-зв'язок\ (функціональна схема)],
       ),
       d3: (
         number: [ІАЛЦ.467200.006],
         short_form: [Д3],
-        long_form: [Принципова схема],
+        long_form: [Алгоритм дії застосунку\ (принципова схема)],
       ),
       d4: (
         number: [ІАЛЦ.467200.007],
@@ -84,4 +85,28 @@
 )[
   #report_section_heading[todo]
   hello world;
+]
+
+#d1_content(
+  thesis: thesis,
+)[
+  todo
+]
+
+#d2_content(
+  thesis: thesis,
+)[
+  todo
+]
+
+#d3_content(
+  thesis: thesis,
+)[
+  todo
+]
+
+#d4_content(
+  thesis: thesis,
+)[
+  todo
 ]

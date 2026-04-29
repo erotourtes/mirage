@@ -1,4 +1,4 @@
-#import "lib/main.typ": (
+#import "lib/index.typ": (
   report_abbreviations_page, report_labels, report_outline_page, report_page,
   report_section_counter, report_section_heading, report_title_page,
 )
@@ -18,6 +18,7 @@
   )
 
   #report_outline_page(
+    thesis.document.codes.report.long_form,
     topic: thesis.topic,
     group: thesis.student.group,
     document_code: full_document_code(thesis.document.codes.report),

@@ -30,6 +30,7 @@
 }
 
 #let footer_f2(
+  document_name,
   topic: none,
   group: none,
   document_code: [todo],
@@ -70,7 +71,7 @@
       #align(center)[
         #text(weight: "bold")[#topic]
         #v(1.5mm)
-        #text()[Технічне завдання]
+        #text()[#document_name]
       ]
     ],
 

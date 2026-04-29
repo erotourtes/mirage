@@ -1,7 +1,19 @@
 #import "page.typ": bordered_page
 #import "footer.typ": footer_f2, footer_f2a
 
-#let outline_entry_row(entry) = [
+#let outline_entry_heading(entry, metadata_entries: false) = {
+  if metadata_entries {
+    entry.value
+  } else {
+    entry
+  }
+}
+
+#let outline_entry_row(entryParam, metadata_entries: false) = [
+  #let entry = outline_entry_heading(
+    entryParam,
+    metadata_entries: metadata_entries,
+  )
   #let page_number = counter(page).at(entry.location()).first()
   #let heading_number = if entry.numbering == none {
     []
@@ -21,12 +33,18 @@
   ]
 ]
 
-#let outline_entry_gap(entries, index) = {
+#let outline_entry_gap(entries, index, metadata_entries: false) = {
   if index + 1 >= entries.len() {
     0mm
   } else {
-    let entry = entries.at(index)
-    let next = entries.at(index + 1)
+    let entry = outline_entry_heading(
+      entries.at(index),
+      metadata_entries: metadata_entries,
+    )
+    let next = outline_entry_heading(
+      entries.at(index + 1),
+      metadata_entries: metadata_entries,
+    )
 
     if next.level > entry.level {
       2mm
@@ -37,7 +55,6 @@
     }
   }
 }
-
 
 #let outline_page(
   topic: none,
@@ -50,10 +67,15 @@
   start_label: none,
   end_label: none,
   header_label: none,
+  metadata_entries: true,
 ) = context {
   counter(page).update(1)
 
-  let entries = query(selector(heading).and(header_label))
+  let entries = if metadata_entries {
+    query(header_label)
+  } else {
+    query(selector(heading).and(header_label))
+  }
   let sheet_count = context {
     let starts = query(start_label)
     let ends = query(end_label)
@@ -79,6 +101,8 @@
     approved_by: approved_by,
   )
 
+  // Typst can vary footer content by page, but the page margin is fixed for
+  // this whole flow. Reserve the large first footer to prevent overlap.
   bordered_page(
     footer_space: measure(first_footer).height,
     footer: context {
@@ -96,8 +120,8 @@
     #v(7mm)
 
     #for (index, entry) in entries.enumerate() [
-      #outline_entry_row(entry)
-      #v(outline_entry_gap(entries, index))
+      #outline_entry_row(entry, metadata_entries: metadata_entries)
+      #v(outline_entry_gap(entries, index, metadata_entries: metadata_entries))
     ]
   ]
 }

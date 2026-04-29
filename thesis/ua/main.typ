@@ -1,6 +1,6 @@
 #import "lib/template.typ": thesis_template
 #import "technical_task/content.typ": technical_task_content
-#import "report/content.typ": report_content
+#import "report/content.typ": report_content, report_section_heading
 
 #let thesis = (
   topic: [Модуль синхронізації текстових даних у розподілених системах],
@@ -77,5 +77,5 @@
 #report_content(
   thesis: thesis,
 )[
-  = todo
+  #report_section_heading[todo]
 ]

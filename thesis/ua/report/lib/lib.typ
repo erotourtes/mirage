@@ -6,9 +6,45 @@
 
 #let report_labels = (
   header: <report_outline_header>,
+  section: <report_section_header>,
   page_start: <report_outline_page_start>,
   page_end: <report_outline_page_end>,
 )
+
+#let report_section_counter = counter("report_section")
+
+#let report_section_heading(body) = [
+  #report_section_counter.step()
+  #context {
+    let section_number = report_section_counter.get().first()
+    let display_body = [
+      Розділ #section_number\
+      #body
+    ]
+    let query_body = [Розділ #section_number. #body]
+    let outline_body = upper(query_body)
+
+    [
+      #align(center)[
+        #{
+          set par(leading: 1.5em)
+          text(size: 18pt, weight: "bold")[#upper(display_body)]
+        }
+      ]
+      #metadata((
+        level: 1,
+        numbering: none,
+        body: outline_body,
+      )) #report_labels.header
+      #metadata((
+        level: 1,
+        numbering: none,
+        body: query_body,
+      )) #report_labels.section
+      #v(3em)
+    ]
+  }
+]
 
 #let report_page(body, document_code: none) = [
   #bordered_page(

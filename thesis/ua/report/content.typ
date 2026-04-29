@@ -1,11 +1,12 @@
 #import "lib/main.typ": (
-  report_abbreviations_page, report_labels, report_outline_page,
-  report_page, report_title_page,
+  report_abbreviations_page, report_labels, report_outline_page, report_page,
+  report_section_counter, report_section_heading, report_title_page,
 )
 #import "../lib/lib.typ": full_document_code
 
 
 #let report_content(thesis: (:), body) = [
+  #report_section_counter.update(0)
   #show heading: it => [
     #it #metadata(it) #report_labels.header
   ]

@@ -14,13 +14,14 @@
     entryParam,
     metadata_entries: metadata_entries,
   )
-  #let page_number = counter(page).at(entry.location()).first()
+  #let entry_location = entryParam.location()
+  #let page_number = counter(page).at(entry_location).first()
   #let heading_number = if entry.level == 1 or entry.numbering == none {
     []
   } else {
     [#numbering(entry.numbering, ..counter(heading).at(entry.location())) ]
   }
-  #link(entry.location())[
+  #link(entry_location)[
     #grid(
       columns: (auto, 1fr, auto),
       column-gutter: 1.6mm,

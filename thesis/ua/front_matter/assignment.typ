@@ -1,5 +1,6 @@
 #import "../lib/lib.typ": signature_field, under_field, year_field
 #import "../lib/page.typ": cover_page
+#import "../report/lib/main.typ": report_labels
 
 #let task_list(start: 1, body) = {
   set enum(
@@ -122,7 +123,10 @@
       #task_line[
         Зміст розрахунково-пояснювальної записки (перелік питань, які розробляються)\
         #context for section in {
-          query(heading.where(level: 1)).map(heading => heading.body)
+          query(report_labels.section)
+            .map(entry => entry.value)
+            .filter(heading => heading.level == 1)
+            .map(heading => heading.body)
         } [
           #h(8mm)#underline[#section]\
         ]

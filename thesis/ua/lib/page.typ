@@ -25,7 +25,12 @@
   #body
 ]
 
-#let standard_page(body, background: none, footer: none, footer_space: auto) = context {
+#let standard_page(
+  body,
+  background: none,
+  footer: none,
+  footer_space: auto,
+) = context {
   let footer_height = if footer == none {
     0mm
   } else if footer_space == auto {
@@ -54,6 +59,13 @@
   ]
 }
 
+#let pad_margins = (
+  left: 12mm,
+  right: 12mm,
+  top: 12mm,
+  bottom: 8mm,
+)
+
 #let bordered_page(body, footer: none, footer_space: auto) = {
   standard_page(
     background: place(
@@ -70,7 +82,12 @@
     footer: footer,
     footer_space: footer_space,
   )[
-    #pad(x: 12mm, top: 12mm, bottom: 8mm)[
+    #pad(
+      left: pad_margins.left,
+      right: pad_margins.right,
+      top: pad_margins.top,
+      bottom: pad_margins.bottom,
+    )[
       #body
     ]
   ]

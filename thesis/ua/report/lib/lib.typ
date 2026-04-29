@@ -1,7 +1,7 @@
 
 #import "../../lib/footer.typ": footer_f2a
 #import "../../lib/outline.typ": outline_page
-#import "../../lib/page.typ": bordered_page, cover_page
+#import "../../lib/page.typ": bordered_page, cover_page, pad_margins
 #import "../../lib/lib.typ": page_margin
 
 #let report_labels = (
@@ -25,6 +25,8 @@
     let outline_body = upper(query_body)
 
     [
+      #colbreak(weak: true)
+      #v(4em - pad_margins.top)
       #align(center)[
         #{
           set par(leading: 1.5em)

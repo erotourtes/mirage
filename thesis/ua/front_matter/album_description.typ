@@ -1,5 +1,12 @@
-#import "../lib/lib.typ": full_document_code
+#import "../lib/lib.typ": (
+  full_document_code, page_range_sheet_count,
+)
 #import "../lib/page.typ": standard_page
+#import "../technical_task/lib/index.typ": technical_task_labels
+#import "../report/lib/index.typ": report_labels
+#import "../appendix/content.typ": (
+  appendix_d1_meta, appendix_d2_meta, appendix_d3_meta, appendix_d4_meta,
+)
 
 #let header_cell(body) = table.cell(align: center + horizon)[
   #{
@@ -53,32 +60,50 @@
     (
       topic: [#topic\ #codes.technical_task.long_form],
       code: full_document_code(codes.technical_task),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        technical_task_labels.page_start,
+        technical_task_labels.page_end,
+      ),
     ),
     (
       topic: [#topic\ #codes.report.long_form],
       code: full_document_code(codes.report),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        report_labels.page_start,
+        report_labels.page_end,
+      ),
     ),
     (
       topic: [#topic\ #codes.d1.long_form],
       code: full_document_code(codes.d1),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        appendix_d1_meta.start_label,
+        appendix_d1_meta.end_label,
+      ),
     ),
     (
       topic: [#topic\ #codes.d2.long_form],
       code: full_document_code(codes.d2),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        appendix_d2_meta.start_label,
+        appendix_d2_meta.end_label,
+      ),
     ),
     (
       topic: [#topic\ #codes.d3.long_form],
       code: full_document_code(codes.d3),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        appendix_d3_meta.start_label,
+        appendix_d3_meta.end_label,
+      ),
     ),
     (
       topic: [#topic\ #codes.d4.long_form],
       code: full_document_code(codes.d4),
-      sheets: [todo],
+      sheets: page_range_sheet_count(
+        appendix_d4_meta.start_label,
+        appendix_d4_meta.end_label,
+      ),
     ),
   )
 

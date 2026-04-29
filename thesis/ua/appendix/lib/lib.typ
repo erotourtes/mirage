@@ -1,19 +1,6 @@
 #import "../../lib/footer.typ": footer_f2, footer_f2a
-#import "../../lib/lib.typ": full_document_code, page_margin
+#import "../../lib/lib.typ": full_document_code, page_margin, page_range_sheet_count
 #import "../../lib/page.typ": bordered_page, cover_page
-
-#let appendix_sheet_count(meta) = context {
-  let starts = query(meta.start_label)
-  let ends = query(meta.end_label)
-
-  if starts.len() == 0 or ends.len() == 0 {
-    [??]
-  } else {
-    let start_page = starts.first().location().page()
-    let end_page = ends.last().location().page()
-    end_page - start_page + 1
-  }
-}
 
 #let appendix_title_page(
   number: none,
@@ -71,7 +58,7 @@
     group: group,
     document_code: document_code,
     sheet_number: [1],
-    sheet_count: appendix_sheet_count(meta),
+    sheet_count: page_range_sheet_count(meta.start_label, meta.end_label),
     implemented_by: implemented_by,
     reviewed_by: reviewed_by,
     norm_controller: norm_controller,

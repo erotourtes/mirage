@@ -1,6 +1,7 @@
 #import "lib/index.typ": (
-  appendix_page, appendix_sheet_count, appendix_title_page,
+  appendix_page, appendix_title_page,
 )
+#import "../lib/lib.typ": page_range_sheet_count
 
 #let appendix_content(meta, thesis: (:), body) = {
   let code = thesis.document.codes.at(meta.code_key)
@@ -12,7 +13,7 @@
       code: code,
       city: thesis.document.city,
       year: thesis.document.year,
-      sheet_count: appendix_sheet_count(meta),
+      sheet_count: page_range_sheet_count(meta.start_label, meta.end_label),
     )
 
     #appendix_page(

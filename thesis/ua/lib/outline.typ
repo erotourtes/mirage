@@ -1,5 +1,6 @@
 #import "page.typ": bordered_page
 #import "footer.typ": footer_f2, footer_f2a
+#import "lib.typ": page_range_sheet_count
 
 #let outline_entry_heading(entry, metadata_entries: false) = {
   if metadata_entries {
@@ -78,19 +79,7 @@
   } else {
     query(selector(heading).and(header_label))
   }
-  let sheet_count = context {
-    let starts = query(start_label)
-    let ends = query(end_label)
-
-    if starts.len() == 0 or ends.len() == 0 {
-      [??]
-    } else {
-      let start_page = starts.first().location().page()
-      let end_page = ends.last().location().page()
-
-      end_page - start_page + 1
-    }
-  }
+  let sheet_count = page_range_sheet_count(start_label, end_label)
   let first_footer = footer_f2(
     document_name,
     topic: topic,

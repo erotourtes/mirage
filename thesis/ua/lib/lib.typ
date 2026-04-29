@@ -17,6 +17,18 @@
 
 #let full_document_code(code) = [#code.number #code.short_form]
 
+#let page_range_sheet_count(start_label, end_label) = context {
+  let starts = query(start_label)
+  let ends = query(end_label)
+
+  if starts.len() == 0 or ends.len() == 0 {
+    [??]
+  } else {
+    let start_page = starts.first().location().page()
+    let end_page = ends.last().location().page()
+    end_page - start_page + 1
+  }
+}
 
 #let gendered(male, female, is_female: false) = {
   if is_female {

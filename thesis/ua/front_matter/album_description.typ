@@ -119,7 +119,7 @@
         size: 17pt,
         weight: "bold",
         style: "italic",
-      )[#full_document_code(codes.technical_task)]],
+      )[#full_document_code(codes.album_description)]],
       [], [], [], [], [],
       [Зм.], [Лист], [#text(size: 10.5pt)[№ докум.]], [Підпис], [Дата],
 
@@ -131,7 +131,7 @@
         rowspan: 3,
         align: center + horizon,
         inset: 7mm,
-      )[#text(style: "italic")[#topic\ #codes.technical_task.long_form]],
+      )[#text(style: "italic")[#topic\ #codes.album_description.long_form]],
       table.cell(colspan: 3)[Літ.], [Аркуш], [Аркушів],
       table.cell(colspan: 2)[#text(weight: "bold")[Перевір.]],
       [#examined_by],

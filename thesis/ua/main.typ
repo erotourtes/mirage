@@ -9,6 +9,11 @@
     city: [Київ],
     year: [2026],
     codes: (
+      album_description: (
+        number: [ІАЛЦ.467200.001],
+        short_form: [ОА],
+        long_form: [Технічне завдання],
+      ),
       technical_task: (
         number: [ІАЛЦ.467200.002],
         short_form: [ТЗ],

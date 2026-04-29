@@ -1,3 +1,4 @@
+#import "../lib/lib.typ": full_document_code
 #import "../lib/page.typ": standard_page
 
 #let header_cell(body) = table.cell(align: center + horizon)[
@@ -44,38 +45,39 @@
 #let album_description_page(
   topic: [],
   group: [],
+  codes: (:),
   implemented_by: [todo],
   examined_by: [todo],
 ) = {
   let first_table_entries = (
     (
-      topic: [#topic\ Технічне завдання],
-      code: [todo],
+      topic: [#topic\ #codes.technical_task.long_form],
+      code: full_document_code(codes.technical_task),
       sheets: [todo],
     ),
     (
-      topic: [#topic\ Пояснювальна записка],
-      code: [todo],
+      topic: [#topic\ #codes.report.long_form],
+      code: full_document_code(codes.report),
       sheets: [todo],
     ),
     (
-      topic: [#topic\ Компоненти застосунка\ (структурна схема)],
-      code: [todo],
+      topic: [#topic\ #codes.d1.long_form],
+      code: full_document_code(codes.d1),
       sheets: [todo],
     ),
     (
-      topic: [#topic\ Діаграма сутність-зв'язок\ (функціональна схема)],
-      code: [todo],
+      topic: [#topic\ #codes.d2.long_form],
+      code: full_document_code(codes.d2),
       sheets: [todo],
     ),
     (
-      topic: [#topic\ Алгоритм дій застосунку\ (принципова схема)],
-      code: [todo],
+      topic: [#topic\ #codes.d3.long_form],
+      code: full_document_code(codes.d3),
       sheets: [todo],
     ),
     (
-      topic: [#topic\ Текст програмного коду],
-      code: [todo],
+      topic: [#topic\ #codes.d4.long_form],
+      code: full_document_code(codes.d4),
       sheets: [todo],
     ),
   )
@@ -117,7 +119,7 @@
         size: 17pt,
         weight: "bold",
         style: "italic",
-      )[todo]],
+      )[#full_document_code(codes.technical_task)]],
       [], [], [], [], [],
       [Зм.], [Лист], [#text(size: 10.5pt)[№ докум.]], [Підпис], [Дата],
 
@@ -129,7 +131,7 @@
         rowspan: 3,
         align: center + horizon,
         inset: 7mm,
-      )[#text(style: "italic")[#topic\ Технічне завдання]],
+      )[#text(style: "italic")[#topic\ #codes.technical_task.long_form]],
       table.cell(colspan: 3)[Літ.], [Аркуш], [Аркушів],
       table.cell(colspan: 2)[#text(weight: "bold")[Перевір.]],
       [#examined_by],

@@ -2,47 +2,80 @@
 #import "technical_task/content.typ": technical_task_content
 #import "report/content.typ": report_content
 
-#let document_meta = (
-  head_name: [Артем Волокита],
-  city: [Київ],
-  year: [2026],
-)
-
 #let thesis = (
   topic: [Модуль синхронізації текстових даних у розподілених системах],
-  student_course: [4],
-  student_group: [ІМ-21],
-  student_name: [Сірик Максим Олександрович],
-  student_sign_name: [Максим СІРИК],
-  student_name_initials: [Сірик М. О.],
-  student_name_genitive: [Сірика Максима Олександровича],
-  advisor_title_line: [ст. наук. співроб., канд. наук, Долголенко О. М.],
-  advisor_full_line: [Долголенко Олександр Миколайович],
-  advisor_name_initials: [Долголенко О. М.],
-  advisor_sign_name: [Олександр ДОЛГОЛЕНКО],
-  technical_task_code: [ІАЛЦ.467200.002 ТЗ],
-  report_code: [ІАЛЦ.467200.003 ПЗ],
-  abbreviations: (
-    ([todo], [todo])
+  document: (
+    head_name: [Артем Волокита],
+    city: [Київ],
+    year: [2026],
+    codes: (
+      technical_task: (
+        number: [ІАЛЦ.467200.002],
+        short_form: [ТЗ],
+        long_form: [Технічне завдання],
+      ),
+      report: (
+        number: [ІАЛЦ.467200.003],
+        short_form: [ПЗ],
+        long_form: [Пояснювальна записка],
+      ),
+      d1: (
+        number: [ІАЛЦ.467200.004],
+        short_form: [Д1],
+        long_form: [Структурна схема],
+      ),
+      d2: (
+        number: [ІАЛЦ.467200.005],
+        short_form: [Д2],
+        long_form: [Функціональна схема],
+      ),
+      d3: (
+        number: [ІАЛЦ.467200.006],
+        short_form: [Д3],
+        long_form: [Принципова схема],
+      ),
+      d4: (
+        number: [ІАЛЦ.467200.007],
+        short_form: [Д4],
+        long_form: [Текст програмного коду],
+      ),
+    ),
+  ),
+  student: (
+    course: [4],
+    group: [ІМ-21],
+    full_name: [Сірик Максим Олександрович],
+    sign_name: [Максим СІРИК],
+    initials: [Сірик М. О.],
+    genitive_name: [Сірика Максима Олександровича],
+  ),
+  advisor: (
+    title_line: [ст. наук. співроб., канд. наук, Долголенко О. М.],
+    full_name: [Долголенко Олександр Миколайович],
+    sign_name: [Олександр ДОЛГОЛЕНКО],
+    initials: [Долголенко О. М.],
+  ),
+  report: (
+    abbreviations: (
+      ([todo], [todo])
+    ),
   ),
 )
 
 #show: doc => thesis_template(
-  document_meta: document_meta,
   thesis: thesis,
   doc,
 )
 
 #technical_task_content(
   thesis: thesis,
-  document_meta: document_meta,
 )[
-  = todo
+  = todo \
+  == todo naother
 ]
 
 #report_content(
   thesis: thesis,
-  document_meta: document_meta,
 )[
   = todo
 ]

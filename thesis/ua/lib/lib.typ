@@ -15,6 +15,8 @@
 
 #let font_main = "Times New Roman"
 
+#let full_document_code(code) = [#code.number #code.short_form]
+
 
 #let gendered(male, female, is_female: false) = {
   if is_female {

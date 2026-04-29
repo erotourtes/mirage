@@ -15,7 +15,7 @@
     size: size,
     weight: "bold",
   )[
-    #if it.numbering != none {
+    #if level > 1 and it.numbering != none {
       numbering(it.numbering, ..counter(heading).at(it.location()))
     }
     #it.body
@@ -24,41 +24,41 @@
 
 
 #let thesis_template(
-  document_meta: (:),
   thesis: (:),
   doc,
 ) = [
-  #set heading(numbering: "1")
+  #set heading(numbering: "1.1")
   #show heading.where(level: 1): it => heading_config(1, it)
   #show heading.where(level: 2): it => heading_config(2, it)
   #show heading.where(level: 3): it => heading_config(3, it)
 
   #title_page(
     topic: thesis.topic,
-    student_course: thesis.student_course,
-    student_group: thesis.student_group,
-    student_name: thesis.student_name,
-    advisor_name: thesis.advisor_title_line,
-    head_name: document_meta.head_name,
-    city: document_meta.city,
-    year: document_meta.year,
+    student_course: thesis.student.course,
+    student_group: thesis.student.group,
+    student_name: thesis.student.full_name,
+    advisor_name: thesis.advisor.title_line,
+    head_name: thesis.document.head_name,
+    city: thesis.document.city,
+    year: thesis.document.year,
   )
 
   #assignment_pages(
     topic: thesis.topic,
-    student_name: thesis.student_name,
-    student_name_genitive: thesis.student_name_genitive,
-    advisor_name: thesis.advisor_sign_name,
-    advisor_line: thesis.advisor_full_line,
-    head_name: document_meta.head_name,
-    student_sign_name: thesis.student_sign_name,
-    advisor_sign_name: thesis.advisor_sign_name,
-    year: document_meta.year,
+    student_name: thesis.student.full_name,
+    student_name_genitive: thesis.student.genitive_name,
+    advisor_name: thesis.advisor.sign_name,
+    advisor_line: thesis.advisor.full_name,
+    head_name: thesis.document.head_name,
+    student_sign_name: thesis.student.sign_name,
+    advisor_sign_name: thesis.advisor.sign_name,
+    year: thesis.document.year,
   )
 
   #album_description_page(
     topic: thesis.topic,
-    group: thesis.student_group,
+    group: thesis.student.group,
+    codes: thesis.document.codes,
   )
 
   #doc

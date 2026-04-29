@@ -15,7 +15,7 @@
     metadata_entries: metadata_entries,
   )
   #let page_number = counter(page).at(entry.location()).first()
-  #let heading_number = if entry.numbering == none {
+  #let heading_number = if entry.level == 1 or entry.numbering == none {
     []
   } else {
     [#numbering(entry.numbering, ..counter(heading).at(entry.location())) ]

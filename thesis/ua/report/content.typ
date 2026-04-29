@@ -2,30 +2,31 @@
   report_abbreviations_page, report_labels, report_outline_page,
   report_page, report_title_page,
 )
+#import "../lib/lib.typ": full_document_code
 
 
-#let report_content(thesis: (:), document_meta: (:), body) = [
+#let report_content(thesis: (:), body) = [
   #show heading: it => [
     #it #metadata(it) #report_labels.header
   ]
 
   #report_title_page(
     topic: thesis.topic,
-    city: document_meta.city,
-    year: document_meta.year,
+    city: thesis.document.city,
+    year: thesis.document.year,
   )
 
   #report_outline_page(
     topic: thesis.topic,
-    group: thesis.student_group,
-    document_code: thesis.report_code,
-    implemented_by: thesis.student_name_initials,
-    reviewed_by: thesis.advisor_name_initials,
+    group: thesis.student.group,
+    document_code: full_document_code(thesis.document.codes.report),
+    implemented_by: thesis.student.initials,
+    reviewed_by: thesis.advisor.initials,
   )
 
   #report_abbreviations_page(
-    document_code: thesis.report_code,
-    abbreviations: thesis.abbreviations,
+    document_code: full_document_code(thesis.document.codes.report),
+    abbreviations: thesis.report.abbreviations,
   )
 
   #report_page[

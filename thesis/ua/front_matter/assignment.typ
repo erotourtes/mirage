@@ -1,7 +1,7 @@
-#import "lib/lib.typ": signature_field, under_field, year_field
-#import "lib/page.typ": title_page_frame
+#import "../lib/lib.typ": signature_field, under_field, year_field
+#import "../lib/page.typ": cover_page
 
-#let task-list(start: 1, body) = {
+#let task_list(start: 1, body) = {
   set enum(
     numbering: "1.",
     start: start,
@@ -10,35 +10,35 @@
   body
 }
 
-#let task-line(body) = enum.item(body)
+#let task_line(body) = enum.item(body)
 
-#let task-row(number, body) = grid(
+#let task_row(number, body) = grid(
   columns: (9mm, 1fr),
   column-gutter: 3mm,
   align: top,
   [#number.], body,
 )
 
-#let default-assignment-meta = (
-  university-line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ "КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО"],
+#let default_assignment_meta = (
+  university_line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ "КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО"],
   faculty: [Факультет інформатики та обчислювальної техніки\ Кафедра обчислювальної техніки],
-  education-level: [Рівень вищої освіти - перший (бакалавр)\ Освітньо-професійна програма\ "Інженерія програмного забезпечення комп’ютерних систем"\ спеціальності 121 “Інженерія програмного забезпечення”],
+  education_level: [Рівень вищої освіти - перший (бакалавр)\ Освітньо-професійна програма\ "Інженерія програмного забезпечення комп’ютерних систем"\ спеціальності 121 “Інженерія програмного забезпечення”],
 )
 
 #let assignment_pages(
-  meta: default-assignment-meta,
+  meta: default_assignment_meta,
   topic: none,
-  student-name: none,
-  student-name-genitive: none,
-  advisor-name: none,
-  advisor-line: none,
-  head-name: none,
-  order-line: [todo],
-  due-date: [todo],
-  input-data: [технічна документація, теоретичні дані.],
+  student_name: none,
+  student_name_genitive: none,
+  advisor_name: none,
+  advisor_line: none,
+  head_name: none,
+  order_line: [todo],
+  due_date: [todo],
+  input_data: [технічна документація, теоретичні дані.],
   graphics: [todo],
-  norm-controller: [],
-  issue-date: [todo],
+  norm_controller: [],
+  issue_date: [todo],
   year: none,
   calendar: (
     ([Затвердження теми проекту], [], []),
@@ -55,21 +55,21 @@
     ([Передзахист], [], []),
     ([Захист], [], []),
   ),
-  student-sign-name: none,
-  advisor-sign-name: none,
+  student_sign_name: none,
+  advisor_sign_name: none,
 ) = {
-  title_page_frame[
+  cover_page[
     #v(18mm)
     #align(center)[
       #align(center)[
-        #text(weight: "bold")[#meta.university-line]
+        #text(weight: "bold")[#meta.university_line]
         #v(2mm)
         #underline[#meta.faculty]
       ]
       #v(1mm)
       #stack(
         spacing: 10pt,
-        [#meta.education-level],
+        [#meta.education_level],
       )
     ]
 
@@ -85,7 +85,7 @@
           align: horizon,
           [ #signature_field() ],
           [
-            #under_field(start: 20mm)[ #head-name ]
+            #under_field(start: 20mm)[ #head_name ]
           ],
         )
         #align(right)[
@@ -99,27 +99,27 @@
       #text(weight: "bold")[ЗАВДАННЯ]\
       на бакалаврський дипломний проект студента\
       #v(3mm)
-      #underline[#student-name-genitive]
+      #underline[#student_name_genitive]
     ]
 
     #v(7mm)
-    #task-list[
-      #task-line[
+    #task_list[
+      #task_line[
         Тема проекту #underline[#emph(topic)]\
         керівник проекту
-        #under_field(caption: [(прізвище, ім'я, по батькові, науковий ступінь, вчене звання)])[ #advisor-line ],\
-        затверджені наказом по університету від #underline[#order-line]
+        #under_field(caption: [(прізвище, ім'я, по батькові, науковий ступінь, вчене звання)])[ #advisor_line ],\
+        затверджені наказом по університету від #underline[#order_line]
       ]
 
-      #task-line[
-        Термін здачі студентом закінченого проекту #underline[#due-date]
+      #task_line[
+        Термін здачі студентом закінченого проекту #underline[#due_date]
       ]
 
-      #task-line[
-        Вихідні дані до проекту #underline[#emph(input-data)]
+      #task_line[
+        Вихідні дані до проекту #underline[#emph(input_data)]
       ]
 
-      #task-line[
+      #task_line[
         Зміст розрахунково-пояснювальної записки (перелік питань, які розробляються)\
         #context for section in {
           query(heading.where(level: 1)).map(heading => heading.body)
@@ -130,14 +130,14 @@
     ]
   ]
 
-  title_page_frame[
-    #task-list(start: 5)[
-      #task-line[
+  cover_page[
+    #task_list(start: 5)[
+      #task_line[
         Перелік графічного матеріалу (з точним позначенням обов'язкових креслень)
         #underline[#graphics]
       ]
 
-      #task-line[
+      #task_line[
         Консультанта проекту, з вказівкою розділів проекту, які до них вносяться
       ]
     ]
@@ -156,7 +156,7 @@
         [Завдання\ видав],
         [Завдання\ прийняв],
         [Нормоконтроль],
-        [#norm-controller],
+        [#norm_controller],
         [],
         [],
         [],
@@ -167,9 +167,9 @@
     ]
 
     #v(8mm)
-    #task-list(start: 7)[
-      #task-line[
-        Дата видачі завдання «#underline[#issue-date].»
+    #task_list(start: 7)[
+      #task_line[
+        Дата видачі завдання «#underline[#issue_date].»
       ]
     ]
 
@@ -208,16 +208,16 @@
       [],
       [#under_field(
         width: 100%,
-        body-align: right,
+        body_align: right,
       )[
-        #student-sign-name
+        #student_sign_name
       ]],
 
       [Керівник проекту],
       [#signature_field()],
       [],
-      [#under_field(width: 100%, body-align: right)[
-        #advisor-sign-name
+      [#under_field(width: 100%, body_align: right)[
+        #advisor_sign_name
       ]],
     )
   ]

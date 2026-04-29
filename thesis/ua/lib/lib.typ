@@ -1,19 +1,23 @@
 // KPI OT thesis template primitives.
 
-#let page-width = 210mm
-#let page-height = 297mm
+#let page_size = (
+  width: 210mm,
+  height: 297mm,
+)
 
 // Global KPI OT document offsets.
-#let offset-left = 20mm
-#let offset-top = 5mm
-#let offset-right = 5mm
-#let offset-bottom = 5mm
+#let page_margin = (
+  left: 20mm,
+  top: 5mm,
+  right: 5mm,
+  bottom: 5mm,
+)
 
-#let font-main = "Times New Roman"
+#let font_main = "Times New Roman"
 
 
-#let gendered(male, female, is-female: false) = {
-  if is-female {
+#let gendered(male, female, is_female: false) = {
+  if is_female {
     female
   } else {
     male
@@ -26,31 +30,31 @@
   start: 0pt,
   end: 0pt,
   caption: none,
-  caption-size: 8pt,
-  caption-dy: 2pt,
-  caption-dx: 0pt,
-  caption-width: none,
-  caption-align: center,
-  body-align: center,
+  caption_size: 8pt,
+  caption_dy: 2pt,
+  caption_dx: 0pt,
+  caption_width: none,
+  caption_align: center,
+  body_align: center,
   stroke: 0.55pt,
-  value-size: 14pt,
-  line-gap: 0pt,
-  baseline-ratio: 0.34,
+  value_size: 14pt,
+  line_gap: 0pt,
+  baseline_ratio: 0.34,
 ) = context {
-  let body-width = measure(body).width
+  let body_width = measure(body).width
   let w = if width == auto {
-    body-width + start + end
+    body_width + start + end
   } else {
     width
   }
 
-  let text-baseline = value-size * baseline-ratio
+  let text_baseline = value_size * baseline_ratio
 
-  box(width: w, height: value-size + line-gap, baseline: text-baseline)[
+  box(width: w, height: value_size + line_gap, baseline: text_baseline)[
     #h(start)
     #box(width: w - start - end)[
-      #align(body-align)[
-        #text(size: value-size)[#body]
+      #align(body_align)[
+        #text(size: value_size)[#body]
       ]
     ]
 
@@ -59,12 +63,12 @@
     ]
 
     #if caption != none {
-      let cw = if caption-width == none { w } else { caption-width }
+      let caption_box_width = if caption_width == none { w } else { caption_width }
 
-      place(top + left, dx: caption-dx, dy: value-size + line-gap + caption-dy)[
-        #box(width: cw)[
-          #align(caption-align)[
-            #text(size: caption-size)[#caption]
+      place(top + left, dx: caption_dx, dy: value_size + line_gap + caption_dy)[
+        #box(width: caption_box_width)[
+          #align(caption_align)[
+            #text(size: caption_size)[#caption]
           ]
         ]
       ]

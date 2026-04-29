@@ -1,6 +1,6 @@
 
 #let footer_f2a(
-  document-code: [todo],
+  document_code: [todo],
 ) = context {
   [
     #set text(size: 10.5pt)
@@ -13,7 +13,7 @@
 
       [], [], [], [], [],
       table.cell(rowspan: 3, align: center + horizon)[
-        #text(size: 14pt)[#document-code]
+        #text(size: 14pt)[#document_code]
       ],
       [#text()[Арк.]],
 
@@ -32,13 +32,13 @@
 #let footer_f2(
   topic: none,
   group: none,
-  document-code: [todo],
-  sheet-number: [1],
-  sheet-count: [1],
-  implemented-by: [todo],
-  reviewed-by: [todo],
-  norm-controller: [],
-  approved-by: [],
+  document_code: [todo],
+  sheet_number: [1],
+  sheet_count: [1],
+  implemented_by: [todo],
+  reviewed_by: [todo],
+  norm_controller: [],
+  approved_by: [],
 ) = [
   #set text(size: 10.5pt)
   #table(
@@ -50,7 +50,7 @@
 
     [], [], [], [], [],
     table.cell(colspan: 6, rowspan: 3, align: center + horizon)[
-      #text(size: 14pt)[#document-code]
+      #text(size: 14pt)[#document_code]
     ],
 
     [], [], [], [], [],
@@ -62,7 +62,7 @@
     [#text()[Дата]],
 
     table.cell(colspan: 2)[#text()[Розробив]],
-    [#text(size: 8pt)[#implemented-by]],
+    [#text(size: 8pt)[#implemented_by]],
     [],
     [],
 
@@ -81,12 +81,12 @@
     [#text()[Аркушів]],
 
     table.cell(colspan: 2)[#text(size: 9pt)[Перевірив]],
-    [#text(size: 7pt)[#reviewed-by]],
+    [#text(size: 7pt)[#reviewed_by]],
     [],
     [],
     [], [], [],
-    [#sheet-number],
-    [#sheet-count],
+    [#sheet_number],
+    [#sheet_count],
 
     table.cell(colspan: 2)[], [], [], [],
     table.cell(rowspan: 3, colspan: 5, align: center + horizon, inset: 1.5mm)[
@@ -94,12 +94,12 @@
     ],
 
     table.cell(colspan: 2)[#text()[Н. Контр.]],
-    [#text(size: 8pt)[#norm-controller]],
+    [#text(size: 8pt)[#norm_controller]],
     [],
     [],
 
     table.cell(colspan: 2)[#text(size: 9pt)[Затвердив]],
-    [#text(size: 8pt)[#approved-by]],
+    [#text(size: 8pt)[#approved_by]],
     [],
     [],
   )

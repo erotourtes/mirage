@@ -1,18 +1,20 @@
-#import "../lib/lib.typ": offset-right
-#import "../lib/page.typ": title_page_frame
+#import "../../lib/lib.typ": page_margin
+#import "../../lib/page.typ": cover_page
 
-#let report_title_page(
+#let technical_task_title_page(
   topic: none,
   city: none,
   year: none,
 ) = {
-  title_page_frame(right: offset-right)[
+  cover_page(right: page_margin.right)[
+    #set par(justify: false)
+
     #v(68mm)
     #align(center)[
       #text(
         weight: "bold",
         size: 18pt,
-      )[ПОЯСНЮВАЛЬНА ЗАПИСКА\ ДО ДИПЛОМНОГО ПРОЄКТУ]
+      )[ТЕХНІЧНЕ ЗАВДАННЯ\ ДО ДИПЛОМНОГО ПРОЄКТУ]
     ]
 
     #v(5mm)

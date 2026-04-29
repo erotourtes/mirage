@@ -1,7 +1,7 @@
-#import "outline.typ": report_outline_heading, report_page_frame
+#import "outline.typ": report_outline_heading, report_page
 
-#let report-abbreviations-page(
-  document-code: [todo],
+#let report_abbreviations_page(
+  document_code: [todo],
   abbreviations: (
     (
       [todo],
@@ -9,8 +9,8 @@
     )
   ),
 ) = {
-  report_page_frame(
-    document-code: document-code,
+  report_page(
+    document_code: document_code,
   )[
     #align(center)[
       #report_outline_heading(numbering: none)[ПЕРЕЛІК СКОРОЧЕНЬ]

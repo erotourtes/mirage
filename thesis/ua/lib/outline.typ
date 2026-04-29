@@ -1,9 +1,9 @@
-#import "page.typ": outline_page_frame
+#import "page.typ": bordered_page
 #import "footer.typ": footer_f2, footer_f2a
 
 #let outline_entry_row(entry) = [
-  #let page-number = counter(page).at(entry.location()).first()
-  #let heading-number = if entry.numbering == none {
+  #let page_number = counter(page).at(entry.location()).first()
+  #let heading_number = if entry.numbering == none {
     []
   } else {
     [#numbering(entry.numbering, ..counter(heading).at(entry.location())) ]
@@ -13,10 +13,10 @@
       columns: (auto, 1fr, auto),
       column-gutter: 1.6mm,
       [#pad(left: 11mm * calc.max(entry.level - 1, 0))[
-        #heading-number #entry.body
+        #heading_number #entry.body
       ]],
       [#box(width: 100%, clip: true)[#repeat()[.]]],
-      [#page-number],
+      [#page_number],
     )
   ]
 ]
@@ -42,53 +42,55 @@
 #let outline_page(
   topic: none,
   group: none,
-  document-code: [todo],
-  implemented-by: [todo],
-  reviewed-by: [todo],
-  norm-controller: [],
-  approved-by: [],
-  start-label: none,
-  end-label: none,
-  header-label: none,
+  document_code: [todo],
+  implemented_by: [todo],
+  reviewed_by: [todo],
+  norm_controller: [],
+  approved_by: [],
+  start_label: none,
+  end_label: none,
+  header_label: none,
 ) = context {
   counter(page).update(1)
 
-  let entries = query(selector(heading).and(header-label))
-  let sheet-count = context {
-    let starts = query(start-label)
-    let ends = query(end-label)
+  let entries = query(selector(heading).and(header_label))
+  let sheet_count = context {
+    let starts = query(start_label)
+    let ends = query(end_label)
 
     if starts.len() == 0 or ends.len() == 0 {
       [??]
     } else {
-      let start-page = starts.first().location().page()
-      let end-page = ends.last().location().page()
+      let start_page = starts.first().location().page()
+      let end_page = ends.last().location().page()
 
-      end-page - start-page + 1
+      end_page - start_page + 1
     }
   }
+  let first_footer = footer_f2(
+    topic: topic,
+    group: group,
+    document_code: document_code,
+    sheet_number: [1],
+    sheet_count: [#sheet_count],
+    implemented_by: implemented_by,
+    reviewed_by: reviewed_by,
+    norm_controller: norm_controller,
+    approved_by: approved_by,
+  )
 
-  outline_page_frame(
+  bordered_page(
+    footer_space: measure(first_footer).height,
     footer: context {
       let p = counter(page).get().first()
       if p == 1 {
-        footer_f2(
-          topic: topic,
-          group: group,
-          document-code: document-code,
-          sheet-number: [1],
-          sheet-count: [#sheet-count],
-          implemented-by: implemented-by,
-          reviewed-by: reviewed-by,
-          norm-controller: norm-controller,
-          approved-by: approved-by,
-        )
+        first_footer
       } else {
-        footer_f2a()
+        footer_f2a(document_code: document_code)
       }
     },
   )[
-    #metadata("start") #start-label
+    #metadata("start") #start_label
 
     #align(center)[ЗМІСТ]
     #v(7mm)

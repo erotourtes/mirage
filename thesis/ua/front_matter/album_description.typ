@@ -1,4 +1,4 @@
-#import "lib/page.typ": standard_page_frame
+#import "../lib/page.typ": standard_page
 
 #let header_cell(body) = table.cell(align: center + horizon)[
   #{
@@ -44,8 +44,8 @@
 #let album_description_page(
   topic: [],
   group: [],
-  implementedBy: [todo],
-  examinedBy: [todo],
+  implemented_by: [todo],
+  examined_by: [todo],
 ) = {
   let first_table_entries = (
     (
@@ -80,7 +80,7 @@
     ),
   )
 
-  standard_page_frame[
+  standard_page[
     #set text(size: 11.5pt)
     #set par(leading: 0.6em)
     #table(
@@ -122,7 +122,7 @@
       [Зм.], [Лист], [#text(size: 10.5pt)[№ докум.]], [Підпис], [Дата],
 
       table.cell(colspan: 2)[#text(weight: "bold")[Розроб.]],
-      [#implementedBy],
+      [#implemented_by],
       [],
       [],
       table.cell(
@@ -132,7 +132,7 @@
       )[#text(style: "italic")[#topic\ Технічне завдання]],
       table.cell(colspan: 3)[Літ.], [Аркуш], [Аркушів],
       table.cell(colspan: 2)[#text(weight: "bold")[Перевір.]],
-      [#examinedBy],
+      [#examined_by],
       [], [], [], [], [], [1], [1],
 
       table.cell(colspan: 2)[],

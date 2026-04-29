@@ -1,58 +1,74 @@
-#import "lib.typ": (
-  font-main, offset-bottom, offset-left, offset-right, offset-top, page-height,
-  page-width,
-)
+#import "lib.typ": font_main, page_margin, page_size
 
-#let title_page_frame(body, right: none) = page(
-  width: page-width,
-  height: page-height,
+#let footer_slot(footer, height) = {
+  if footer == none {
+    none
+  } else {
+    box(height: height)[
+      #align(bottom)[#footer]
+    ]
+  }
+}
+
+#let cover_page(body, right: none) = page(
+  width: page_size.width,
+  height: page_size.height,
   margin: (
-    left: offset-left,
-    right: if right == none { offset-left } else { right },
-    top: offset-left,
-    bottom: offset-left,
+    left: page_margin.left,
+    right: if right == none { page_margin.left } else { right },
+    top: page_margin.left,
+    bottom: page_margin.left,
   ),
   numbering: none,
 )[
-  #set text(font: font-main, lang: "ua", 14pt)
+  #set text(font: font_main, lang: "ua", 14pt)
   #body
 ]
 
-#let standard_page_frame(body, background: none, footer: none) = context {
+#let standard_page(body, background: none, footer: none, footer_space: auto) = context {
+  let footer_height = if footer == none {
+    0mm
+  } else if footer_space == auto {
+    measure(footer).height
+  } else {
+    footer_space
+  }
+
   page(
-    width: page-width,
-    height: page-height,
+    width: page_size.width,
+    height: page_size.height,
     margin: (
-      left: offset-left,
-      right: offset-right,
-      top: offset-top,
-      bottom: offset-bottom + measure(footer).height,
+      left: page_margin.left,
+      right: page_margin.right,
+      top: page_margin.top,
+      bottom: page_margin.bottom + footer_height,
     ),
     background: background,
-    footer: footer,
+    footer: footer_slot(footer, footer_height),
     footer-descent: 0mm,
     numbering: none,
   )[
-    #set text(font: font-main, lang: "ua", 14pt)
+    #set text(font: font_main, lang: "ua", 14pt)
     #set par(justify: true, leading: 0.62em)
     #body
   ]
 }
 
-#let outline_page_frame(body, footer: none) = {
-  standard_page_frame(
+#let bordered_page(body, footer: none, footer_space: auto) = {
+  standard_page(
     background: place(
       top + left,
-      dx: offset-left,
-      dy: offset-top,
+      dx: page_margin.left,
+      dy: page_margin.top,
     )[
       #box(
-        width: page-width - offset-left - offset-right,
-        height: page-height - offset-top - offset-bottom,
+        width: page_size.width - page_margin.left - page_margin.right,
+        height: page_size.height - page_margin.top - page_margin.bottom,
         stroke: 2pt,
       )
     ],
     footer: footer,
+    footer_space: footer_space,
   )[
     #pad(x: 12mm, top: 12mm, bottom: 8mm)[
       #body

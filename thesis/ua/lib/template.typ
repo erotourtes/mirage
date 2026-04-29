@@ -1,6 +1,7 @@
 #import "../front_matter/album_description.typ": album_description_page
 #import "../front_matter/assignment.typ": assignment_pages
 #import "../front_matter/title.typ": title_page
+#import "../front_matter/annotation.typ": annotation_page
 
 #let heading_config(level, it) = {
   let size = if level == 1 {
@@ -53,6 +54,11 @@
     student_sign_name: thesis.student.sign_name,
     advisor_sign_name: thesis.advisor.sign_name,
     year: thesis.document.year,
+  )
+
+  #annotation_page(
+    text_ua: thesis.annotation.text_ua,
+    text_en: thesis.annotation.text_en,
   )
 
   #album_description_page(

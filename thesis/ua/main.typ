@@ -66,6 +66,10 @@
       ([todo], [todo])
     ),
   ),
+  annotation: (
+    text_ua: [todo],
+    text_en: [todo],
+  ),
 )
 
 #show: doc => thesis_template(

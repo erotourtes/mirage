@@ -115,14 +115,17 @@
   thesis: thesis,
 )[
   = todo \
-  == todo naother
+  == todo \
+  === todo
 ]
 
 #report_content(
   thesis: thesis,
 )[
-  #report_section_heading[todo]
-  hello world;
+  = todo \
+  #report_section_heading[todo] \
+  == todo \
+  === todo \
 ]
 
 #d1_content(

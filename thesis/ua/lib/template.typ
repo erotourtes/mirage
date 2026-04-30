@@ -2,26 +2,7 @@
 #import "../front_matter/assignment.typ": assignment_pages, default_assignment_meta
 #import "../front_matter/title.typ": title_page, default_title_meta
 #import "../front_matter/annotation.typ": annotation_page
-
-#let heading_config(level: none, it: none) = {
-  let size = if level == 1 {
-    18pt
-  } else if level == 2 {
-    16pt
-  } else {
-    14pt
-  }
-
-  text(
-    size: size,
-    weight: "bold",
-  )[
-    #if level > 1 and it.numbering != none {
-      numbering(it.numbering, ..counter(heading).at(it.location()))
-    }
-    #it.body
-  ]
-}
+#import "heading.typ": heading_config
 
 
 #let thesis_template(

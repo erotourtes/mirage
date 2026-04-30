@@ -3,13 +3,19 @@
   technical_task_title_page,
 )
 #import "../lib/lib.typ": full_document_code
+#import "../lib/heading.typ": heading_config
 
 #let technical_task_content(
   body,
   thesis: none,
 ) = {
   show heading: it => [
-    #it #metadata(it) #technical_task_labels.header
+    #heading_config(level: it.level, it: it, number_level_one: true)
+    #metadata((
+      level: it.level,
+      numbering: none,
+      body: it.body,
+    )) #technical_task_labels.header
   ]
 
   technical_task_title_page(

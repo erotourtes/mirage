@@ -29,7 +29,7 @@
       #v(4em - pad_margins.top)
       #align(center)[
         #{
-          set par(leading: 1.5em)
+          set par(leading: 1.3em)
           text(size: 18pt, weight: "bold")[#upper(display_body)]
         }
       ]
@@ -43,7 +43,7 @@
         numbering: none,
         body: query_body,
       )) #report_labels.section
-      #v(3em)
+      #v(1em)
     ]
   }
 ]

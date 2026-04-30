@@ -5,7 +5,7 @@
 #import "../lib/lib.typ": full_document_code
 
 
-#let report_content(thesis: (:), body) = [
+#let report_content(thesis: none, body) = [
   #report_section_counter.update(0)
   #show heading: it => [
     #it #metadata(it) #report_labels.header
@@ -18,20 +18,22 @@
   )
 
   #report_outline_page(
-    thesis.document.codes.report.long_form,
+    document_name: thesis.document.codes.report.long_form,
     topic: thesis.topic,
     group: thesis.student.group,
-    document_code: full_document_code(thesis.document.codes.report),
+    document_code: full_document_code(code: thesis.document.codes.report),
     implemented_by: thesis.student.initials,
     reviewed_by: thesis.advisor.initials,
+    norm_controller: thesis.document.norm_controller,
+    approved_by: thesis.document.approved_by,
   )
 
   #report_abbreviations_page(
-    document_code: full_document_code(thesis.document.codes.report),
+    document_code: full_document_code(code: thesis.document.codes.report),
     abbreviations: thesis.report.abbreviations,
   )
 
-  #report_page[
+  #report_page(document_code: full_document_code(code: thesis.document.codes.report))[
     #body
   ]
 ]

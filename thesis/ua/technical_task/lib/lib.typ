@@ -10,17 +10,17 @@
 )
 
 #let technical_task_outline_page(
-  document_name,
+  document_name: none,
   topic: none,
   group: none,
-  document_code: [todo],
-  implemented_by: [todo],
-  reviewed_by: [todo],
-  norm_controller: [],
-  approved_by: [],
+  document_code: none,
+  implemented_by: none,
+  reviewed_by: none,
+  norm_controller: none,
+  approved_by: none,
 ) = {
   outline_page(
-    document_name,
+    document_name: document_name,
     topic: topic,
     group: group,
     document_code: document_code,
@@ -32,6 +32,7 @@
     start_label: technical_task_labels.page_start,
     end_label: technical_task_labels.page_end,
     header_label: technical_task_labels.header,
+    metadata_entries: true,
   )
 }
 

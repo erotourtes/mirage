@@ -1,8 +1,8 @@
 #import "../lib/page.typ": cover_page
 
 #let annotation_page(
-  text_ua: [todo],
-  text_en: [todo],
+  text_ua: none,
+  text_en: none,
 ) = {
   cover_page[
     #align(center)[

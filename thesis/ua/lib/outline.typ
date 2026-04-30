@@ -2,7 +2,7 @@
 #import "footer.typ": footer_f2, footer_f2a
 #import "lib.typ": page_range_sheet_count
 
-#let outline_entry_heading(entry, metadata_entries: false) = {
+#let outline_entry_heading(entry: none, metadata_entries: none) = {
   if metadata_entries {
     entry.value
   } else {
@@ -10,12 +10,12 @@
   }
 }
 
-#let outline_entry_row(entryParam, metadata_entries: false) = [
+#let outline_entry_row(entry_param: none, metadata_entries: none) = [
   #let entry = outline_entry_heading(
-    entryParam,
+    entry: entry_param,
     metadata_entries: metadata_entries,
   )
-  #let entry_location = entryParam.location()
+  #let entry_location = entry_param.location()
   #let page_number = counter(page).at(entry_location).first()
   #let heading_number = if entry.level == 1 or entry.numbering == none {
     []
@@ -35,16 +35,16 @@
   ]
 ]
 
-#let outline_entry_gap(entries, index, metadata_entries: false) = {
+#let outline_entry_gap(entries: none, index: none, metadata_entries: none) = {
   if index + 1 >= entries.len() {
     0mm
   } else {
     let entry = outline_entry_heading(
-      entries.at(index),
+      entry: entries.at(index),
       metadata_entries: metadata_entries,
     )
     let next = outline_entry_heading(
-      entries.at(index + 1),
+      entry: entries.at(index + 1),
       metadata_entries: metadata_entries,
     )
 
@@ -59,18 +59,18 @@
 }
 
 #let outline_page(
-  document_name,
+  document_name: none,
   topic: none,
   group: none,
-  document_code: [todo],
-  implemented_by: [todo],
-  reviewed_by: [todo],
-  norm_controller: [],
-  approved_by: [],
+  document_code: none,
+  implemented_by: none,
+  reviewed_by: none,
+  norm_controller: none,
+  approved_by: none,
   start_label: none,
   end_label: none,
   header_label: none,
-  metadata_entries: true,
+  metadata_entries: none,
 ) = context {
   counter(page).update(1)
 
@@ -79,9 +79,9 @@
   } else {
     query(selector(heading).and(header_label))
   }
-  let sheet_count = page_range_sheet_count(start_label, end_label)
+  let sheet_count = page_range_sheet_count(start_label: start_label, end_label: end_label)
   let first_footer = footer_f2(
-    document_name,
+    document_name: document_name,
     topic: topic,
     group: group,
     document_code: document_code,
@@ -112,8 +112,8 @@
     #v(7mm)
 
     #for (index, entry) in entries.enumerate() [
-      #outline_entry_row(entry, metadata_entries: metadata_entries)
-      #v(outline_entry_gap(entries, index, metadata_entries: metadata_entries))
+      #outline_entry_row(entry_param: entry, metadata_entries: metadata_entries)
+      #v(outline_entry_gap(entries: entries, index: index, metadata_entries: metadata_entries))
     ]
   ]
 }

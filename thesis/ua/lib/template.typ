@@ -1,9 +1,9 @@
 #import "../front_matter/album_description.typ": album_description_page
-#import "../front_matter/assignment.typ": assignment_pages
-#import "../front_matter/title.typ": title_page
+#import "../front_matter/assignment.typ": assignment_pages, default_assignment_meta
+#import "../front_matter/title.typ": title_page, default_title_meta
 #import "../front_matter/annotation.typ": annotation_page
 
-#let heading_config(level, it) = {
+#let heading_config(level: none, it: none) = {
   let size = if level == 1 {
     18pt
   } else if level == 2 {
@@ -25,32 +25,44 @@
 
 
 #let thesis_template(
-  thesis: (:),
   doc,
+  thesis: none,
 ) = [
   #set heading(numbering: "1.1")
-  #show heading.where(level: 1): it => heading_config(1, it)
-  #show heading.where(level: 2): it => heading_config(2, it)
-  #show heading.where(level: 3): it => heading_config(3, it)
+  #show heading.where(level: 1): it => heading_config(level: 1, it: it)
+  #show heading.where(level: 2): it => heading_config(level: 2, it: it)
+  #show heading.where(level: 3): it => heading_config(level: 3, it: it)
 
   #title_page(
+    meta: default_title_meta,
     topic: thesis.topic,
     student_course: thesis.student.course,
     student_group: thesis.student.group,
     student_name: thesis.student.full_name,
     advisor_name: thesis.advisor.title_line,
+    consultant_name: thesis.consultant.title_line,
+    reviewer_name: thesis.reviewer.title_line,
     head_name: thesis.document.head_name,
     city: thesis.document.city,
     year: thesis.document.year,
+    student_female: false,
   )
 
   #assignment_pages(
+    meta: default_assignment_meta,
     topic: thesis.topic,
     student_name: thesis.student.full_name,
     student_name_genitive: thesis.student.genitive_name,
     advisor_name: thesis.advisor.sign_name,
     advisor_line: thesis.advisor.full_name,
     head_name: thesis.document.head_name,
+    order_line: thesis.assignment.order_line,
+    due_date: thesis.assignment.due_date,
+    input_data: thesis.assignment.input_data,
+    graphics: thesis.assignment.graphics,
+    norm_controller: thesis.document.norm_controller,
+    issue_date: thesis.assignment.issue_date,
+    calendar: thesis.assignment.calendar,
     student_sign_name: thesis.student.sign_name,
     advisor_sign_name: thesis.advisor.sign_name,
     year: thesis.document.year,
@@ -65,6 +77,8 @@
     topic: thesis.topic,
     group: thesis.student.group,
     codes: thesis.document.codes,
+    implemented_by: thesis.album_description.implemented_by,
+    examined_by: thesis.album_description.examined_by,
   )
 
   #doc

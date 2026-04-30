@@ -1,4 +1,6 @@
-#import "../lib/lib.typ": gendered, signature_field, under_field, year_field
+#import "../lib/lib.typ": (
+  gendered, signature_field, under_field, year_field,
+)
 #import "../lib/page.typ": cover_page
 
 #let default_title_meta = (
@@ -9,7 +11,7 @@
 )
 
 #let title_page(
-  meta: default_title_meta,
+  meta: none,
   topic: none,
   student_course: none,
   student_group: none,
@@ -20,7 +22,7 @@
   head_name: none,
   city: none,
   year: none,
-  student_female: false,
+  student_female: none,
 ) = {
   cover_page[
     #block(width: 170mm)[
@@ -65,8 +67,8 @@
         spacing: 14pt,
         [#text[на тему:] #under_field()[#topic]],
         [
-          #gendered([Виконав], [Виконала], is_female: student_female):
-          #gendered([студент], [студентка], is_female: student_female)
+          #gendered(male: [Виконав], female: [Виконала], is_female: student_female):
+          #gendered(male: [студент], female: [студентка], is_female: student_female)
           #under_field(width: 7mm)[#student_course]
           курсу, групи
           #under_field(width: 20mm, caption: [(шифр групи)])[#student_group]
@@ -144,7 +146,7 @@
               columns: (auto, 28mm),
               column-gutter: 7mm,
               align: horizon,
-              [#gendered([Студент], [Студентка], is_female: student_female)],
+              [#gendered(male: [Студент], female: [Студентка], is_female: student_female)],
               [#signature_field()],
             )
           ]

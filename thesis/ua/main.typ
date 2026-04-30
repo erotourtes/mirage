@@ -7,6 +7,8 @@
   topic: [Модуль синхронізації текстових даних у розподілених системах],
   document: (
     head_name: [Артем Волокита],
+    approved_by: [todo],
+    norm_controller: [todo],
     city: [Київ],
     year: [2026],
     codes: (
@@ -61,6 +63,12 @@
     sign_name: [Олександр ДОЛГОЛЕНКО],
     initials: [Долголенко О. М.],
   ),
+  consultant: (
+    title_line: [todo],
+  ),
+  reviewer: (
+    title_line: [todo],
+  ),
   report: (
     abbreviations: (
       ([todo], [todo])
@@ -69,6 +77,32 @@
   annotation: (
     text_ua: [todo],
     text_en: [todo],
+  ),
+  assignment: (
+    order_line: [todo],
+    due_date: [todo],
+    input_data: [технічна документація, теоретичні дані.],
+    graphics: [todo],
+    issue_date: [todo],
+    calendar: (
+      ([Затвердження теми проекту], [], []),
+      ([Вивчення та аналіз завдання], [], []),
+      (
+        [Розробка архітектури та загальної структури системи],
+        [],
+        [],
+      ),
+      ([Розробка структур окремих підсистем], [], []),
+      ([Програмна реалізація системи], [], []),
+      ([Оформлення пояснювальної записки], [], []),
+      ([Захист програмного продукту], [], []),
+      ([Передзахист], [], []),
+      ([Захист], [], []),
+    ),
+  ),
+  album_description: (
+    implemented_by: [todo],
+    examined_by: [todo],
   ),
 )
 

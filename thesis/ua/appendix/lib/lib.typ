@@ -5,17 +5,11 @@
 #let appendix_title_page(
   number: none,
   topic: none,
-  code: (:),
+  code: none,
   city: none,
   year: none,
   sheet_count: none,
 ) = {
-  let sheets = if sheet_count == none {
-    [todo]
-  } else {
-    sheet_count
-  }
-
   cover_page(right: page_margin.right)[
     #align(center)[
       #v(30mm)
@@ -27,10 +21,10 @@
       #v(40mm)
       #text(size: 18pt)[#code.long_form]
       #v(3mm)
-      #text(size: 18pt)[#full_document_code(code)]
+      #text(size: 18pt)[#full_document_code(code: code)]
 
       #v(53mm)
-      #text(size: 16pt)[Аркушів #sheets]
+      #text(size: 16pt)[Аркушів #sheet_count]
 
       #v(1fr)
       #text(size: 14pt, weight: "bold")[#city #year р]
@@ -39,26 +33,26 @@
 }
 
 #let appendix_page(
-  meta,
   body,
+  meta: none,
   topic: none,
   group: none,
-  code: (:),
-  implemented_by: [todo],
-  reviewed_by: [todo],
-  norm_controller: [],
-  approved_by: [],
+  code: none,
+  implemented_by: none,
+  reviewed_by: none,
+  norm_controller: none,
+  approved_by: none,
 ) = context {
   counter(page).update(1)
 
-  let document_code = full_document_code(code)
+  let document_code = full_document_code(code: code)
   let first_footer = footer_f2(
-    code.long_form,
+    document_name: code.long_form,
     topic: topic,
     group: group,
     document_code: document_code,
     sheet_number: [1],
-    sheet_count: page_range_sheet_count(meta.start_label, meta.end_label),
+    sheet_count: page_range_sheet_count(start_label: meta.start_label, end_label: meta.end_label),
     implemented_by: implemented_by,
     reviewed_by: reviewed_by,
     norm_controller: norm_controller,

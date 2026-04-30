@@ -6,7 +6,7 @@
 
 #let technical_task_content(
   body,
-  thesis: (:),
+  thesis: none,
 ) = {
   show heading: it => [
     #it #metadata(it) #technical_task_labels.header
@@ -19,15 +19,17 @@
   )
 
   technical_task_outline_page(
-    thesis.document.codes.technical_task.long_form,
+    document_name: thesis.document.codes.technical_task.long_form,
     topic: thesis.topic,
     group: thesis.student.group,
-    document_code: full_document_code(thesis.document.codes.technical_task),
+    document_code: full_document_code(code: thesis.document.codes.technical_task),
     implemented_by: thesis.student.initials,
     reviewed_by: thesis.advisor.initials,
+    norm_controller: thesis.document.norm_controller,
+    approved_by: thesis.document.approved_by,
   )
 
-  technical_task_page(document_code: full_document_code(thesis.document.codes.technical_task))[
+  technical_task_page(document_code: full_document_code(code: thesis.document.codes.technical_task))[
     #body
   ]
 }

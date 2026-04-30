@@ -3,7 +3,7 @@
 )
 #import "../lib/lib.typ": page_range_sheet_count
 
-#let appendix_content(meta, thesis: (:), body) = {
+#let appendix_content(meta: none, thesis: none, body) = {
   let code = thesis.document.codes.at(meta.code_key)
 
   [
@@ -13,16 +13,18 @@
       code: code,
       city: thesis.document.city,
       year: thesis.document.year,
-      sheet_count: page_range_sheet_count(meta.start_label, meta.end_label),
+      sheet_count: page_range_sheet_count(start_label: meta.start_label, end_label: meta.end_label),
     )
 
     #appendix_page(
-      meta,
+      meta: meta,
       topic: thesis.topic,
       group: thesis.student.group,
       code: code,
       implemented_by: thesis.student.initials,
       reviewed_by: thesis.advisor.initials,
+      norm_controller: thesis.document.norm_controller,
+      approved_by: thesis.document.approved_by,
     )[#body]
   ]
 }
@@ -55,22 +57,22 @@
   end_label: <appendix_d4_end>,
 )
 
-#let d1_content(thesis: (:), body) = appendix_content(
-  appendix_d1_meta,
+#let d1_content(thesis: none, body) = appendix_content(
+  meta: appendix_d1_meta,
   thesis: thesis,
 )[#body]
 
-#let d2_content(thesis: (:), body) = appendix_content(
-  appendix_d2_meta,
+#let d2_content(thesis: none, body) = appendix_content(
+  meta: appendix_d2_meta,
   thesis: thesis,
 )[#body]
 
-#let d3_content(thesis: (:), body) = appendix_content(
-  appendix_d3_meta,
+#let d3_content(thesis: none, body) = appendix_content(
+  meta: appendix_d3_meta,
   thesis: thesis,
 )[#body]
 
-#let d4_content(thesis: (:), body) = appendix_content(
-  appendix_d4_meta,
+#let d4_content(thesis: none, body) = appendix_content(
+  meta: appendix_d4_meta,
   thesis: thesis,
 )[#body]

@@ -1,6 +1,6 @@
 
 #let footer_f2a(
-  document_code: [todo],
+  document_code: none,
 ) = context {
   [
     #set text(size: 10.5pt)
@@ -30,16 +30,16 @@
 }
 
 #let footer_f2(
-  document_name,
+  document_name: none,
   topic: none,
   group: none,
-  document_code: [todo],
-  sheet_number: [1],
-  sheet_count: [1],
-  implemented_by: [todo],
-  reviewed_by: [todo],
-  norm_controller: [],
-  approved_by: [],
+  document_code: none,
+  sheet_number: none,
+  sheet_count: none,
+  implemented_by: none,
+  reviewed_by: none,
+  norm_controller: none,
+  approved_by: none,
 ) = [
   #set text(size: 10.5pt)
   #table(

@@ -15,7 +15,7 @@
   }
 ]
 
-#let first_table_row(topic, code, sheets, format: [A4]) = (
+#let first_table_row(topic: none, code: none, sheets: none, format: [A4]) = (
   [],
   [#align(center)[#text(weight: "bold")[#format]]],
   [#text(weight: "bold")[#code]],
@@ -35,12 +35,16 @@
   [],
 )
 
-#let first_table_rows(entries) = {
+#let first_table_rows(entries: none) = {
   let generated = ()
   generated += first_table_empty_row
   generated += first_table_empty_row
   for (i, entry) in entries.enumerate() {
-    generated += first_table_row(entry.topic, entry.code, entry.sheets)
+    generated += first_table_row(
+      topic: entry.topic,
+      code: entry.code,
+      sheets: entry.sheets,
+    )
     let repeat = if (i < 2) { 4 } else { 5 }
     for i in range(1, repeat + 1) {
       generated += first_table_empty_row
@@ -50,59 +54,59 @@
 }
 
 #let album_description_page(
-  topic: [],
-  group: [],
-  codes: (:),
-  implemented_by: [todo],
-  examined_by: [todo],
+  topic: none,
+  group: none,
+  codes: none,
+  implemented_by: none,
+  examined_by: none,
 ) = {
   let first_table_entries = (
     (
       topic: [#topic\ #codes.technical_task.long_form],
-      code: full_document_code(codes.technical_task),
+      code: full_document_code(code: codes.technical_task),
       sheets: page_range_sheet_count(
-        technical_task_labels.page_start,
-        technical_task_labels.page_end,
+        start_label: technical_task_labels.page_start,
+        end_label: technical_task_labels.page_end,
       ),
     ),
     (
       topic: [#topic\ #codes.report.long_form],
-      code: full_document_code(codes.report),
+      code: full_document_code(code: codes.report),
       sheets: page_range_sheet_count(
-        report_labels.page_start,
-        report_labels.page_end,
+        start_label: report_labels.page_start,
+        end_label: report_labels.page_end,
       ),
     ),
     (
       topic: [#topic\ #codes.d1.long_form],
-      code: full_document_code(codes.d1),
+      code: full_document_code(code: codes.d1),
       sheets: page_range_sheet_count(
-        appendix_d1_meta.start_label,
-        appendix_d1_meta.end_label,
+        start_label: appendix_d1_meta.start_label,
+        end_label: appendix_d1_meta.end_label,
       ),
     ),
     (
       topic: [#topic\ #codes.d2.long_form],
-      code: full_document_code(codes.d2),
+      code: full_document_code(code: codes.d2),
       sheets: page_range_sheet_count(
-        appendix_d2_meta.start_label,
-        appendix_d2_meta.end_label,
+        start_label: appendix_d2_meta.start_label,
+        end_label: appendix_d2_meta.end_label,
       ),
     ),
     (
       topic: [#topic\ #codes.d3.long_form],
-      code: full_document_code(codes.d3),
+      code: full_document_code(code: codes.d3),
       sheets: page_range_sheet_count(
-        appendix_d3_meta.start_label,
-        appendix_d3_meta.end_label,
+        start_label: appendix_d3_meta.start_label,
+        end_label: appendix_d3_meta.end_label,
       ),
     ),
     (
       topic: [#topic\ #codes.d4.long_form],
-      code: full_document_code(codes.d4),
+      code: full_document_code(code: codes.d4),
       sheets: page_range_sheet_count(
-        appendix_d4_meta.start_label,
-        appendix_d4_meta.end_label,
+        start_label: appendix_d4_meta.start_label,
+        end_label: appendix_d4_meta.end_label,
       ),
     ),
   )
@@ -129,7 +133,7 @@
       header_cell[#text(weight: "bold")[Додаток]],
 
       [], [], [], [Документація загальна\ Знову розроблена], [], [], [],
-      ..first_table_rows(first_table_entries),
+      ..first_table_rows(entries: first_table_entries),
     )
     #v(-4.9mm)
     #table(
@@ -144,7 +148,7 @@
         size: 17pt,
         weight: "bold",
         style: "italic",
-      )[#full_document_code(codes.album_description)]],
+      )[#full_document_code(code: codes.album_description)]],
       [], [], [], [], [],
       [Зм.], [Лист], [#text(size: 10.5pt)[№ докум.]], [Підпис], [Дата],
 

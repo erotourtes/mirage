@@ -13,7 +13,7 @@
 
 #let task_line(body) = enum.item(body)
 
-#let task_row(number, body) = grid(
+#let task_row(number: none, body) = grid(
   columns: (9mm, 1fr),
   column-gutter: 3mm,
   align: top,
@@ -27,35 +27,21 @@
 )
 
 #let assignment_pages(
-  meta: default_assignment_meta,
+  meta: none,
   topic: none,
   student_name: none,
   student_name_genitive: none,
   advisor_name: none,
   advisor_line: none,
   head_name: none,
-  order_line: [todo],
-  due_date: [todo],
-  input_data: [технічна документація, теоретичні дані.],
-  graphics: [todo],
-  norm_controller: [],
-  issue_date: [todo],
+  order_line: none,
+  due_date: none,
+  input_data: none,
+  graphics: none,
+  norm_controller: none,
+  issue_date: none,
   year: none,
-  calendar: (
-    ([Затвердження теми проекту], [], []),
-    ([Вивчення та аналіз завдання], [], []),
-    (
-      [Розробка архітектури та загальної структури системи],
-      [],
-      [],
-    ),
-    ([Розробка структур окремих підсистем], [], []),
-    ([Програмна реалізація системи], [], []),
-    ([Оформлення пояснювальної записки], [], []),
-    ([Захист програмного продукту], [], []),
-    ([Передзахист], [], []),
-    ([Захист], [], []),
-  ),
+  calendar: none,
   student_sign_name: none,
   advisor_sign_name: none,
 ) = {
@@ -220,7 +206,10 @@
       [Керівник проекту],
       [#signature_field()],
       [],
-      [#under_field(width: 100%, body_align: right)[
+      [#under_field(
+        width: 100%,
+        body_align: right,
+      )[
         #advisor_sign_name
       ]],
     )

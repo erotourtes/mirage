@@ -1,6 +1,6 @@
 #import "lib.typ": font_main, page_margin, page_size
 
-#let footer_slot(footer, height) = {
+#let footer_slot(footer: none, height: none) = {
   if footer == none {
     none
   } else {
@@ -49,7 +49,7 @@
       bottom: page_margin.bottom + footer_height,
     ),
     background: background,
-    footer: footer_slot(footer, footer_height),
+    footer: footer_slot(footer: footer, height: footer_height),
     footer-descent: 0mm,
     numbering: none,
   )[

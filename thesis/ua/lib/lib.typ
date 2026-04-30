@@ -15,9 +15,9 @@
 
 #let font_main = "Times New Roman"
 
-#let full_document_code(code) = [#code.number #code.short_form]
+#let full_document_code(code: none) = [#code.number #code.short_form]
 
-#let page_range_sheet_count(start_label, end_label) = context {
+#let page_range_sheet_count(start_label: none, end_label: none) = context {
   let starts = query(start_label)
   let ends = query(end_label)
 
@@ -30,7 +30,7 @@
   }
 }
 
-#let gendered(male, female, is_female: false) = {
+#let gendered(male: none, female: none, is_female: none) = {
   if is_female {
     female
   } else {

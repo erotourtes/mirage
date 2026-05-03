@@ -1,15 +1,19 @@
 #import "lib/index.typ": (
-  report_abbreviations_page, report_labels, report_outline_page, report_page,
-  report_section_counter, report_section_heading, report_title_page,
+  report_abbreviations_page, report_bibliography_page, report_labels,
+  report_heading_rules, report_outline_page, report_page, report_title_page,
 )
 #import "../lib/lib.typ": full_document_code
+#import "../lib/theme.typ": bibliography_style
 
 
-#let report_content(thesis: none, body) = [
-  #report_section_counter.update(0)
-  #show heading: it => [
-    #it #metadata(it) #report_labels.header
-  ]
+#let report_content(
+  thesis: none,
+  bibliography_sources: none,
+  bibliography_full: false,
+  bibliography_style: bibliography_style,
+  body,
+) = [
+  #show heading: report_heading_rules
 
   #report_title_page(
     topic: thesis.topic,
@@ -36,4 +40,13 @@
   #report_page(document_code: full_document_code(code: thesis.document.codes.report))[
     #body
   ]
+
+  #if bibliography_sources != none {
+    report_bibliography_page(
+      bibliography_sources,
+      document_code: full_document_code(code: thesis.document.codes.report),
+      style: bibliography_style,
+      full: bibliography_full,
+    )
+  }
 ]

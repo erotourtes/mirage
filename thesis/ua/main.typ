@@ -1,6 +1,6 @@
 #import "lib/template.typ": thesis_template
 #import "technical_task/content.typ": technical_task_content
-#import "report/content.typ": report_content, report_section_heading
+#import "report/content.typ": report_content
 #import "appendix/content.typ": d1_content, d2_content, d3_content, d4_content
 
 #let thesis = (
@@ -122,10 +122,17 @@
 #report_content(
   thesis: thesis,
 )[
-  = todo \
-  #report_section_heading[todo] \
+  = Розділ 1. todo \
+  == todo
+  === todo
+
+  #parbreak()
+  #lorem(50)
+  #parbreak()
+  #lorem(50)
+
+
   == todo \
-  === todo \
 ]
 
 #d1_content(

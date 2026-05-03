@@ -112,8 +112,8 @@
   )
 
   standard_page[
-    #set text(size: 11.5pt)
-    #set par(leading: 0.6em)
+    #set text(size: 11.5pt, hyphenate: false)
+    #set par(leading: 0.6em, first-line-indent: 0pt)
     #table(
       columns: (12mm, 10mm, 47mm, 60mm, 12mm, 14mm, 30mm),
       rows: (

@@ -3,13 +3,15 @@
 #import "../front_matter/title.typ": title_page, default_title_meta
 #import "../front_matter/annotation.typ": annotation_page
 #import "heading.typ": heading_config
+#import "theme.typ": figure_caption_rules
 
 
 #let thesis_template(
   doc,
   thesis: none,
 ) = [
-  #set heading(numbering: "1.1")
+  #show: figure_caption_rules
+  #set heading(numbering: "1.1", hanging-indent: 0pt)
   #show heading.where(level: 1): it => heading_config(level: 1, it: it)
   #show heading.where(level: 2): it => heading_config(level: 2, it: it)
   #show heading.where(level: 3): it => heading_config(level: 3, it: it)

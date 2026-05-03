@@ -108,13 +108,13 @@
 
       #task_line[
         Зміст розрахунково-пояснювальної записки (перелік питань, які розробляються)\
-        #context for section in {
+        #context for entry in {
           query(report_labels.section)
-            .map(entry => entry.value)
-            .filter(heading => heading.level == 1)
-            .map(heading => heading.body)
+            .filter(entry => entry.value.level == 1)
         } [
-          #h(8mm)#underline[#section]\
+          #h(8mm)#link(entry.location())[
+            #underline[#entry.value.body]
+          ]\
         ]
       ]
     ]

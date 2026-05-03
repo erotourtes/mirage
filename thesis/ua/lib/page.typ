@@ -1,4 +1,5 @@
-#import "lib.typ": font_main, page_margin, page_size
+#import "lib.typ": body_text_size, font_main, page_margin, page_size
+#import "theme.typ": document_text_rules
 
 #let footer_slot(footer: none, height: none) = {
   if footer == none {
@@ -21,7 +22,7 @@
   ),
   numbering: none,
 )[
-  #set text(font: font_main, lang: "ua", 14pt)
+  #set text(font: font_main, lang: "uk", region: "UA", body_text_size)
   #body
 ]
 
@@ -53,8 +54,7 @@
     footer-descent: 0mm,
     numbering: none,
   )[
-    #set text(font: font_main, lang: "ua", 14pt)
-    #set par(justify: true, leading: 0.62em)
+    #show: document_text_rules
     #body
   ]
 }

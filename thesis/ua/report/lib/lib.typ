@@ -3,6 +3,9 @@
 #import "../../lib/outline.typ": outline_page
 #import "../../lib/page.typ": bordered_page, cover_page, pad_margins
 #import "../../lib/lib.typ": page_margin
+#import "../../lib/theme.typ": (
+  bibliography_section, bibliography_style, bibliography_title,
+)
 
 #let report_labels = (
   header: <report_outline_header>,
@@ -13,38 +16,85 @@
 
 #let report_section_counter = counter("report_section")
 
+#let report_heading_title(body) = {
+  let title = repr(body)
+  if title.starts-with("[") and title.ends-with("]") {
+    title.slice(1, -1)
+  } else if title.starts-with("sequence([Розділ ") {
+    title.split("],").first().slice("sequence([".len())
+  } else {
+    title
+  }
+}
+
+#let is_report_section_heading(it) = {
+  it.level == 1 and report_heading_title(it.body).starts-with("Розділ ")
+}
+
+#let report_section_number(title) = {
+  int(title.slice("Розділ ".len()).split(".").first())
+}
+
+#let report_section_display_body(title) = {
+  let parts = title.split(". ")
+  if parts.len() > 1 {
+    [#parts.first()\
+    #parts.slice(1).join(". ")]
+  } else {
+    [#title]
+  }
+}
+
+#let report_section_heading_render(title, section_number: none) = {
+  let display_body = report_section_display_body(title)
+  [
+    #if section_number != none {
+      counter(heading).update(section_number)
+    }
+    #colbreak(weak: true)
+    #v(4em - pad_margins.top)
+    #align(center)[
+      #{
+        set par(leading: 1.3em)
+        set par(first-line-indent: 0pt)
+        text(size: 18pt, weight: "bold")[#upper(display_body)]
+      }
+    ]
+    #metadata((
+      level: 1,
+      numbering: none,
+      body: upper(title),
+    )) #report_labels.header
+    #metadata((
+      level: 1,
+      numbering: none,
+      body: title,
+    )) #report_labels.section
+    #v(1em)
+  ]
+}
+
+#let report_heading_rules(it) = {
+  if is_report_section_heading(it) {
+    let title = report_heading_title(it.body)
+    report_section_heading_render(
+      title,
+      section_number: report_section_number(title),
+    )
+  } else {
+    [#it #metadata(it) #report_labels.header]
+  }
+}
+
 #let report_section_heading(body) = [
   #report_section_counter.step()
   #context {
     let section_number = report_section_counter.get().first()
-    let display_body = [
-      Розділ #section_number\
-      #body
-    ]
     let query_body = [Розділ #section_number. #body]
-    let outline_body = upper(query_body)
-
-    [
-      #colbreak(weak: true)
-      #v(4em - pad_margins.top)
-      #align(center)[
-        #{
-          set par(leading: 1.3em)
-          text(size: 18pt, weight: "bold")[#upper(display_body)]
-        }
-      ]
-      #metadata((
-        level: 1,
-        numbering: none,
-        body: outline_body,
-      )) #report_labels.header
-      #metadata((
-        level: 1,
-        numbering: none,
-        body: query_body,
-      )) #report_labels.section
-      #v(1em)
-    ]
+    report_section_heading_render(
+      report_heading_title(query_body),
+      section_number: section_number,
+    )
   }
 ]
 
@@ -102,6 +152,23 @@
       align: left + horizon,
       stroke: none,
       ..abbreviations.flatten(),
+    )
+  ]
+}
+
+#let report_bibliography_page(
+  sources,
+  document_code: none,
+  title: bibliography_title,
+  style: bibliography_style,
+  full: false,
+) = {
+  report_page(document_code: document_code)[
+    #bibliography_section(
+      sources,
+      title: title,
+      style: style,
+      full: full,
     )
   ]
 }

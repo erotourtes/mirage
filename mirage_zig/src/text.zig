@@ -30,6 +30,14 @@ const Position = struct {
     right: ?item_mod.ItemHandle,
 };
 
+const SearchMarker = struct {
+    index: id.Clock,
+    handle: item_mod.ItemHandle,
+    item_offset: id.Clock,
+};
+
+const search_marker_step: id.Clock = 32;
+
 const StateVector = std.AutoArrayHashMapUnmanaged(id.ClientId, id.Clock);
 
 const RemoteItem = struct {
@@ -59,6 +67,8 @@ pub const Text = struct {
     bytes: std.ArrayList(u8) = .empty,
     store: store_mod.StructStore = .{},
     pending_updates: std.ArrayList([]u8) = .empty,
+    search_markers: std.ArrayList(SearchMarker) = .empty,
+    search_markers_valid: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) Text {
         return .{
@@ -72,6 +82,7 @@ pub const Text = struct {
             self.allocator.free(pending);
         }
         self.pending_updates.deinit(self.allocator);
+        self.search_markers.deinit(self.allocator);
         self.store.deinit(self.allocator);
         self.bytes.deinit(self.allocator);
         self.items.deinit(self.allocator);
@@ -221,6 +232,7 @@ pub const Text = struct {
             const delete_handle = handle;
             const deleted_len = self.items.items[delete_handle].len;
             self.items.items[delete_handle].flags.deleted = true;
+            self.invalidateSearchMarkers();
             self.length -= deleted_len;
             remaining -= deleted_len;
             pos = .{
@@ -343,9 +355,11 @@ pub const Text = struct {
     fn findPosition(self: *Text, index: id.Clock) TextError!Position {
         if (index > self.length) return error.IndexOutOfBounds;
 
-        var remaining = index;
-        var left: ?item_mod.ItemHandle = null;
-        var cursor = self.start;
+        try self.ensureSearchMarkers();
+        const nearest = self.findNearestMarker(index);
+        var remaining = nearest.item_offset + (index - nearest.index);
+        var left: ?item_mod.ItemHandle = if (nearest.handle) |handle| self.items.items[handle].left else null;
+        var cursor = nearest.handle;
         while (cursor) |handle| {
             const current = self.items.items[handle];
             if (!current.flags.deleted and current.flags.countable) {
@@ -364,6 +378,48 @@ pub const Text = struct {
 
         if (remaining != 0) return error.IndexOutOfBounds;
         return .{ .left = left, .right = null };
+    }
+
+    fn ensureSearchMarkers(self: *Text) TextError!void {
+        if (self.search_markers_valid) return;
+
+        self.search_markers.clearRetainingCapacity();
+        var cursor = self.start;
+        var visible_index: id.Clock = 0;
+        var next_marker: id.Clock = 0;
+        while (cursor) |handle| {
+            const current = self.items.items[handle];
+            if (!current.flags.deleted and current.flags.countable) {
+                while (visible_index + current.len > next_marker) {
+                    try self.search_markers.append(self.allocator, .{
+                        .index = next_marker,
+                        .handle = handle,
+                        .item_offset = next_marker - visible_index,
+                    });
+                    next_marker += search_marker_step;
+                }
+                visible_index += current.len;
+            }
+            cursor = current.right;
+        }
+        self.search_markers_valid = true;
+    }
+
+    fn findNearestMarker(self: *const Text, index: id.Clock) struct { index: id.Clock, handle: ?item_mod.ItemHandle, item_offset: id.Clock } {
+        var best_index: id.Clock = 0;
+        var best_handle: ?item_mod.ItemHandle = self.start;
+        var best_item_offset: id.Clock = 0;
+        for (self.search_markers.items) |marker| {
+            if (marker.index > index) break;
+            best_index = marker.index;
+            best_handle = marker.handle;
+            best_item_offset = marker.item_offset;
+        }
+        return .{ .index = best_index, .handle = best_handle, .item_offset = best_item_offset };
+    }
+
+    fn invalidateSearchMarkers(self: *Text) void {
+        self.search_markers_valid = false;
     }
 
     fn splitItem(self: *Text, handle: item_mod.ItemHandle, offset: id.Clock) TextError!item_mod.ItemHandle {
@@ -409,6 +465,7 @@ pub const Text = struct {
             self.items.items[old_right].left = right_handle;
         }
         try self.store.insertStructAfter(self.allocator, self.items.items, handle, right_handle);
+        self.invalidateSearchMarkers();
         return right_handle;
     }
 
@@ -513,6 +570,7 @@ pub const Text = struct {
 
             if (!self.items.items[handle].flags.deleted) {
                 self.items.items[handle].flags.deleted = true;
+                self.invalidateSearchMarkers();
                 if (self.items.items[handle].flags.countable) {
                     self.length -= self.items.items[handle].len;
                 }
@@ -581,6 +639,7 @@ pub const Text = struct {
                     .format => |format_slice| {
                         if (formatIsRedundant(self, active_attrs.items, format_slice)) {
                             self.items.items[handle].flags.deleted = true;
+                            self.invalidateSearchMarkers();
                         } else {
                             try updateActiveAttrs(self, self.allocator, &active_attrs, format_slice);
                         }
@@ -788,6 +847,7 @@ pub const Text = struct {
         }
         self.items.items[handle].left = left;
         self.items.items[handle].right = right;
+        self.invalidateSearchMarkers();
     }
 
     fn appendItem(self: *Text, new_item: item_mod.Item) TextError!item_mod.ItemHandle {
@@ -1427,4 +1487,41 @@ test "deterministic randomized convergence across several docs" {
         try std.testing.expectEqual(@as(usize, 0), doc.text().pending_updates.items.len);
         try doc.text().checkIntegrity();
     }
+}
+
+test "search markers rebuild after local and remote mutations" {
+    var a = @import("doc.zig").Doc.init(std.testing.allocator, 201);
+    defer a.deinit();
+    var b = @import("doc.zig").Doc.init(std.testing.allocator, 202);
+    defer b.deinit();
+
+    try a.text().insert(0, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    try a.text().ensureSearchMarkers();
+    try std.testing.expect(a.text().search_markers_valid);
+    try std.testing.expect(a.text().search_markers.items.len > 1);
+
+    try a.text().insert(33, "!");
+    try std.testing.expect(!a.text().search_markers_valid);
+    _ = try a.text().findPosition(34);
+    try std.testing.expect(a.text().search_markers_valid);
+
+    try a.text().delete(10, 5);
+    try std.testing.expect(!a.text().search_markers_valid);
+    _ = try a.text().findPosition(10);
+    try std.testing.expect(a.text().search_markers_valid);
+
+    const update = try a.text().encodeStateAsUpdate(std.testing.allocator, null);
+    defer std.testing.allocator.free(update);
+    try b.text().applyUpdate(update);
+    try std.testing.expect(!b.text().search_markers_valid);
+    try b.text().ensureSearchMarkers();
+    try std.testing.expect(b.text().search_markers_valid);
+
+    const rendered_a = try a.text().toOwnedString(std.testing.allocator);
+    defer std.testing.allocator.free(rendered_a);
+    const rendered_b = try b.text().toOwnedString(std.testing.allocator);
+    defer std.testing.allocator.free(rendered_b);
+    try std.testing.expectEqualStrings(rendered_a, rendered_b);
+    try a.text().checkIntegrity();
+    try b.text().checkIntegrity();
 }

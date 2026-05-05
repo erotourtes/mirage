@@ -8,16 +8,7 @@
   numbering: "1.",
 )
 
-// #let refs = yaml("bib.yml")
-// #refs.at("ot-jupiter-paper").title
-
 #outline()
-
-
-= Introduction
-
-Web is a technology that changed the world. Because of it's decentralized nature
-
 
 = Task requirements <h1:task-requirements>
 
@@ -41,6 +32,7 @@ The implementation should meet the following requirements:
   work.
 - Scalability. The system should remain practical for a large number of
   participants ($gt 100$).
+- The implementation should work in a web browser environment.
 
 
 = Shared Editing Algorithms
@@ -61,9 +53,7 @@ include locking, transactions, single active participation, dependency detection
 @concurrency-control-classification[p. 401].
 
 Optimistic approaches are more common in modern collaborative editing research.
-Two of the most prominent families are Operational Transformation (OT)
-@concurrency-control-classification, @ot-introduction-blog and Conflict-free
-Replicated Data Types (CRDTs) @crdt-yjs-paper. A related optimistic
+Two of the most prominent families are Operational Transformation (OT) and Conflict-free Replicated Data Types (CRDTs). A related optimistic
 synchronization technique is three-way merge, widely used in version control
 systems, such as git @git-three-way-merge.
 
@@ -259,16 +249,94 @@ real-time collaborative editing.
   [Document state metadata overhead], [Low], [Low to Medium], [High],
 )
 
-== Conclusion
-
 Given the requirements of this work (@h1:task-requirements), CRDT is the most
 suitable choice. Three-way merge is useful as a conceptual optimistic baseline,
 but it is better suited to asynchronous version-control workflows. OT is a
 strong option for centralized real-time editors, but it is a weaker fit when the
 goal is a decentralized system without a permanent coordination server.
 
-= Implementation
+= Text CRDTs Implementations
 
+Text documents are more complex than simple CRDT counters or sets because text is an ordered sequence of elements. A text CRDT must preserve the order of inserted characters or text fragments, resolve concurrent insertions deterministically, and support deletion without breaking convergence. Therefore, practical collaborative editors use specialized sequence CRDT designs.
+
+This section compares several practical CRDT implementations that can be used for collaborative text editing.
+
+*Yjs* @crdt-yjs-github is a YATA-based CRDT implementation that supports collaborative text, rich text, and other shared data types that can be composed into more complex document structures @crdt-yjs-paper. Yjs is optimized for practical editing workloads. In particular, it takes advantage of the fact that users often insert text in contiguous chunks and usually edit from left to right. It also uses a compact binary encoding for synchronization messages, which helps reduce bandwidth usage.
+
+Yjs is implemented in JavaScript and is designed to work in web browsers. Although modern JavaScript engines optimize objects with stable shapes @v8-fast-properties, each object still carries runtime metadata and contributes to memory-management overhead. This makes compact internal representation important for large collaborative documents. There is also a Rust implementation of the Yjs/Yrs CRDT model that can be compiled to WebAssembly @crdt-y-crdt-github.
+
+*Automerge* @crdt-automerge-github is a JSON-like document CRDT with collaborative text support. Its text model follows ideas from Peritext @crdt-automerge-text, which makes it suitable not only for plain text, but also for rich text editing. Unlike algorithm-specific CRDT papers, Automerge does not appear to provide a simple asymptotic time-complexity analysis for its whole public API. Its performance is mostly evaluated empirically and depends on the workload @crdt-automerge-performance-blog, and implementation version.
+
+*json-joy* @crdt-json-joy-rga is a collection of real-time editing algorithms that includes an RGA-family implementation for text. Its RGA implementation is not a naive character-by-character linked list, but a block-wise RGA design intended for practical sequence editing. This makes it useful as an example of an optimized RGA-based sequence CRDT. However, rich-text intent preservation is not the main focus of this implementation; Peritext specifically addresses the problem that naive extensions of plaintext or tree CRDTs may fail to preserve user intent in rich text editing @crdt-peritext-rich-text.
+
+#figure(
+  table(
+    columns: (1.15fr, 1.55fr, 1.55fr, 1.55fr),
+    align: horizon,
+    table.header([Characteristic], [Yjs], [Automerge], [json-joy RGA]),
+
+    [CRDT model],
+    [YATA-based CRDT with implementation optimizations],
+    [JSON-like CRDT with Peritext-based text model],
+    [Block-wise RGA / RGA-split sequence CRDT],
+
+    [Plain text], [Yes], [Yes], [Yes],
+
+    [Rich text],
+    [Yes],
+    [Yes],
+    [Partially; Intent preservation is not guaranteed],
+
+    [Synchronization topology],
+    [Network-agnostic; can use client-server or P2P providers such as WebRTC],
+    [Uses Automerge sync protocol over an application-chosen transport],
+    [Application/library-specific],
+
+    [Performance focus],
+    [Optimized for contiguous text edits],
+    [General local-first documents; performance depends on history and workload],
+    [No known additional optimizations],
+
+    [Local insertion],
+    [$O(log(H))$ @crdt-yjs-paper[p. 45]],
+    [Mostly evaluated empirically],
+    [$O(N)$ @crdt-evalution[p. 106]],
+
+    [Local deletion],
+    [$O(log(H))$ @crdt-yjs-paper[p. 45]],
+    [Mostly evaluated empirically],
+    [$O(N)$ @crdt-evalution[p. 106]],
+
+    [Remote insertion],
+    [$H^2$ @crdt-yjs-paper[p. 45]],
+    [Mostly evaluated empirically],
+    [$O(1 + c/n)$ @crdt-evalution[p. 106]],
+
+    [Remote deletion],
+    [$O(log(H))$ @crdt-yjs-paper[p. 45]],
+    [Mostly evaluated empirically],
+    [$O(1)$ @crdt-evalution[p. 106]],
+
+    [Advantages],
+    [Efficient text synchronization, compact updates, mature ecosystem, browser support, Rust/WASM implementation available],
+    [General-purpose local-first document model, rich-text support through Peritext ideas, good for structured documents],
+    [Useful practical RGA-family implementation, good for explaining sequence CRDTs and block-wise storage],
+
+    [Limitations],
+    [Complex internal model; YATA/Yjs implementation details are harder to explain than simple academic CRDTs],
+    [No simple public asymptotic complexity for the whole API; Less text-editing-specific optimizations than Yjs],
+    [Less focused on rich-text intent preservation; smaller ecosystem than Yjs or Automerge],
+
+    [Suitability], [High], [Medium-high], [Medium],
+  ),
+  caption: [Comparison of practical CRDT implementations for collaborative text editing],
+)
+
+- $c$ is the average number of operations concurrent to a given one,
+- $n$ is the size of the document (non-deleted characters),
+- $N$ is the total number of inserted characters, including deleted characters
+  stored as tombstones,
+- $H$ is the number of operations that affected the document.
 
 
 

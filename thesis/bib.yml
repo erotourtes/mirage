@@ -18,7 +18,8 @@ ot-jupiter-paper:
     isbn: "089791709X"
   parent:
     type: Proceedings
-    title: Proceedings of the 8th Annual ACM Symposium on User Interface and Software Technology
+    title: Proceedings of the 8th Annual ACM Symposium on User Interface and
+      Software Technology
     publisher:
       name: Association for Computing Machinery
       location: New York, NY, USA
@@ -61,7 +62,8 @@ ot-data-consistency-for-p2p:
     isbn: "1595932496"
   parent:
     type: Proceedings
-    title: Proceedings of the 2006 20th Anniversary Conference on Computer Supported Cooperative Work
+    title: Proceedings of the 2006 20th Anniversary Conference on Computer Supported
+      Cooperative Work
     publisher:
       name: Association for Computing Machinery
       location: New York, NY, USA
@@ -111,12 +113,27 @@ crdt-yjs-paper:
     isbn: "9781450342766"
   parent:
     type: Proceedings
-    title: Proceedings of the 2016 ACM International Conference on Supporting Group Work
+    title: Proceedings of the 2016 ACM International Conference on Supporting Group
+      Work
     publisher:
       name: Association for Computing Machinery
       location: New York, NY, USA
     location: Sanibel Island, Florida, USA
     series: "GROUP '16"
+
+crdt-yjs-github:
+  type: Web
+  title: Yjs
+  url:
+    value: https://github.com/yjs/yjs
+    date: 2026-05-04
+
+crdt-y-crdt-github:
+  type: Web
+  title: y-crdt
+  url:
+    value: https://github.com/y-crdt/y-crdt
+    date: 2026-05-04
 
 crdt-basic-paper:
   type: Article
@@ -200,6 +217,76 @@ crdt-yjs-typst:
     value: https://github.com/yjs/yjs/blob/6909511b5bf5c8ab572fc7d12a2268a4646501b0/README.md?plain=1#L126
     date: 2026-04-13
 
+crdt-evalution:
+  type: Article
+  title: Evaluating CRDTs for real-time document editing
+  author:
+    - Ahmed-Nacer, Mehdi
+    - Ignat, Claudia-Lavinia
+    - Oster, Gérald
+    - Roh, Hyun-Gul
+    - Urso, Pascal
+  date: 2011
+  parent:
+    type: proceedings
+    title: Proceedings of the 11th ACM Symposium on Document Engineering
+    publisher: Association for Computing Machinery
+    location: New York, NY, USA
+  page-range: 103-112
+  serial-number:
+    doi: 10.1145/2034691.2034717
+    isbn: 9781450308632
+  url: https://doi.org/10.1145/2034691.2034717
+
+crdt-json-joy-rga:
+  type: Web
+  title: "Block-wise Replicated Growable Array (RGA) Tree Split"
+  url:
+    value: https://github.com/streamich/json-joy/tree/master/packages/json-joy/src/json-crdt/nodes/rga
+    date: 2026-05-04
+
+crdt-peritext-rich-text:
+  type: Article
+  title: "Peritext: A CRDT for Collaborative Rich Text Editing"
+  author:
+    - Litt, Geoffrey
+    - Lim, Sarah
+    - Kleppmann, Martin
+    - van Hardenberg, Peter
+  date: 2022-11
+  parent:
+    type: periodical
+    title: Proceedings of the ACM on Human-Computer Interaction
+    publisher: Association for Computing Machinery
+    location: New York, NY, USA
+  volume: 6
+  issue: CSCW2
+  serial-number:
+    doi: 10.1145/3555644
+  url: https://doi.org/10.1145/3555644
+  page-total: 36
+
+crdt-automerge-github:
+  type: Web
+  title: Automerge
+  url:
+    value: https://github.com/automerge/automerge
+    date: 2026-05-04
+
+crdt-automerge-performance-blog:
+  type: Blog
+  title: "Modeling Data"
+  url:
+    value: https://automerge.org/docs/cookbook/modeling-data/#performance
+    date: 2026-05-05
+
+crdt-automerge-text:
+  type: Blog
+  title: "Automerge 2.2: Rich Text"
+  url:
+    value: https://automerge.org/blog/rich-text/
+    date: 2026-05-04
+
 crdt-zed:
   type: Web
   title: How CRDTs make multiplayer text editing part of Zed's DNA
@@ -258,3 +345,10 @@ figma-architecture:
   url:
     value: https://www.figma.com/blog/how-figmas-multiplayer-technology-works/
     date: 2026-04-18
+
+v8-fast-properties:
+  type: Web
+  title: Fast Properties in V8
+  url:
+    value: https://v8.dev/blog/fast-properties
+    date: 2026-05-04

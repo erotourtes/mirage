@@ -3,9 +3,14 @@ const id = @import("id.zig");
 const item_mod = @import("item.zig");
 const store_mod = @import("store.zig");
 const encoding = @import("encoding.zig");
-const delete_set_mod = @import("delete_set.zig");
 const attrs = @import("attrs.zig");
 const utf = @import("utf.zig");
+const formatting = @import("formatting.zig");
+const delta_mod = @import("delta.zig");
+const search = @import("search.zig");
+const debug_mod = @import("debug.zig");
+const sync = @import("sync.zig");
+const integrate = @import("integrate.zig");
 
 pub const TextError = error{
     IndexOutOfBounds,
@@ -17,48 +22,17 @@ pub const TextError = error{
     UnsupportedContent,
     MissingDependency,
     InvalidUpdate,
+    UnsupportedUpdateVersion,
     VarIntOverflow,
     TrailingBytes,
 } || std.mem.Allocator.Error || store_mod.StoreError;
-
-const update_magic = "MZCRDT2";
-const content_string_tag: u8 = 1;
-const content_format_tag: u8 = 2;
 
 const Position = struct {
     left: ?item_mod.ItemHandle,
     right: ?item_mod.ItemHandle,
 };
 
-const SearchMarker = struct {
-    index: id.Clock,
-    handle: item_mod.ItemHandle,
-    item_offset: id.Clock,
-};
-
-const search_marker_step: id.Clock = 32;
-
-const StateVector = std.AutoArrayHashMapUnmanaged(id.ClientId, id.Clock);
-
-const RemoteItem = struct {
-    id: id.Id,
-    len: id.Clock,
-    initial_left_origin_id: ?id.Id,
-    initial_right_origin_id: ?id.Id,
-    content: RemoteContent,
-};
-
-const RemoteContent = union(enum) {
-    string: []const u8,
-    format: RemoteFormat,
-};
-
-const RemoteFormat = struct {
-    key: []const u8,
-    value: attrs.AttributeValue,
-};
-
-pub const Text = struct {
+pub const TextImpl = struct {
     allocator: std.mem.Allocator,
     client_id: id.ClientId,
     start: ?item_mod.ItemHandle = null,
@@ -67,33 +41,32 @@ pub const Text = struct {
     bytes: std.ArrayList(u8) = .empty,
     store: store_mod.StructStore = .{},
     pending_updates: std.ArrayList([]u8) = .empty,
-    search_markers: std.ArrayList(SearchMarker) = .empty,
-    search_markers_valid: bool = false,
+    search_cache: search.Cache = .{},
 
-    pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) Text {
+    pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) TextImpl {
         return .{
             .allocator = allocator,
             .client_id = client_id,
         };
     }
 
-    pub fn deinit(self: *Text) void {
+    pub fn deinit(self: *TextImpl) void {
         for (self.pending_updates.items) |pending| {
             self.allocator.free(pending);
         }
         self.pending_updates.deinit(self.allocator);
-        self.search_markers.deinit(self.allocator);
+        self.search_cache.deinit(self.allocator);
         self.store.deinit(self.allocator);
         self.bytes.deinit(self.allocator);
         self.items.deinit(self.allocator);
         self.* = undefined;
     }
 
-    pub fn len(self: *const Text) id.Clock {
+    pub fn len(self: *const TextImpl) id.Clock {
         return self.length;
     }
 
-    pub fn insert(self: *Text, index: id.Clock, bytes: []const u8) TextError!void {
+    pub fn insert(self: *TextImpl, index: id.Clock, bytes: []const u8) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
         const logical_len = try utf.scalarCount(bytes);
         if (logical_len == 0) return;
@@ -103,7 +76,7 @@ pub const Text = struct {
     }
 
     pub fn insertWithAttrs(
-        self: *Text,
+        self: *TextImpl,
         index: id.Clock,
         bytes: []const u8,
         attributes: []const attrs.Attribute,
@@ -130,7 +103,7 @@ pub const Text = struct {
     }
 
     pub fn format(
-        self: *Text,
+        self: *TextImpl,
         index: id.Clock,
         format_len: id.Clock,
         attributes: []const attrs.Attribute,
@@ -139,23 +112,28 @@ pub const Text = struct {
         if (format_len > self.length - index) return error.IndexOutOfBounds;
         if (format_len == 0 or attributes.len == 0) return;
 
+        const restore_attributes = try formatting.restoreAttributesAt(
+            self,
+            self.allocator,
+            index + format_len,
+            attributes,
+        );
+        defer formatting.freeOwnedAttributes(self.allocator, restore_attributes);
+
         var start_pos = try self.findPosition(index);
         for (attributes) |attribute| {
             const marker = try self.insertFormatAt(start_pos, attribute);
             start_pos = .{ .left = marker, .right = self.items.items[marker].right };
         }
         var end_pos = try self.findPosition(index + format_len);
-        for (attributes) |attribute| {
-            const marker = try self.insertFormatAt(end_pos, .{
-                .key = attribute.key,
-                .value = .null,
-            });
+        for (restore_attributes) |owned_attribute| {
+            const marker = try self.insertFormatAt(end_pos, owned_attribute.attribute);
             end_pos = .{ .left = marker, .right = self.items.items[marker].right };
         }
         try self.cleanupFormatting();
     }
 
-    fn insertStringAt(self: *Text, pos: Position, bytes: []const u8) TextError!item_mod.ItemHandle {
+    fn insertStringAt(self: *TextImpl, pos: Position, bytes: []const u8) TextError!item_mod.ItemHandle {
         const logical_len = try utf.scalarCount(bytes);
         if (logical_len == 0) return error.IndexOutOfBounds;
 
@@ -187,7 +165,7 @@ pub const Text = struct {
         return handle;
     }
 
-    fn insertFormatAt(self: *Text, pos: Position, attribute: attrs.Attribute) TextError!item_mod.ItemHandle {
+    fn insertFormatAt(self: *TextImpl, pos: Position, attribute: attrs.Attribute) TextError!item_mod.ItemHandle {
         const content = try self.appendAttribute(attribute);
         const handle = try self.appendItem(.{
             .id = .{
@@ -211,7 +189,7 @@ pub const Text = struct {
         return handle;
     }
 
-    pub fn delete(self: *Text, index: id.Clock, delete_len: id.Clock) TextError!void {
+    pub fn delete(self: *TextImpl, index: id.Clock, delete_len: id.Clock) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
         if (delete_len > self.length - index) return error.IndexOutOfBounds;
         if (delete_len == 0) return;
@@ -243,37 +221,19 @@ pub const Text = struct {
         try self.cleanupFormatting();
     }
 
-    pub fn encodeStateVector(self: *const Text, allocator: std.mem.Allocator) TextError![]u8 {
-        var enc = encoding.Encoder.init(allocator);
-        errdefer enc.deinit();
-
-        try enc.writeVarU64(self.store.clients.count());
-        for (self.store.clients.keys(), self.store.clients.values()) |client, client_structs| {
-            if (client_structs.items.items.len == 0) continue;
-            try enc.writeVarU64(client);
-            try enc.writeVarU64(self.store.getState(self.items.items, client));
-        }
-        return try enc.toOwnedSlice();
+    pub fn encodeStateVector(self: *const TextImpl, allocator: std.mem.Allocator) TextError![]u8 {
+        return try sync.encodeStateVector(self.encodeView(), allocator);
     }
 
     pub fn encodeStateAsUpdate(
-        self: *const Text,
+        self: *const TextImpl,
         allocator: std.mem.Allocator,
         encoded_target_state_vector: ?[]const u8,
     ) TextError![]u8 {
-        var target_state = try decodeStateVector(self.allocator, encoded_target_state_vector orelse &.{});
-        defer target_state.deinit(self.allocator);
-
-        var enc = encoding.Encoder.init(allocator);
-        errdefer enc.deinit();
-
-        try enc.bytes.appendSlice(allocator, update_magic);
-        try self.writeStructs(&enc, &target_state);
-        try self.writeDeleteSet(&enc);
-        return try enc.toOwnedSlice();
+        return try sync.encodeStateAsUpdate(self.encodeView(), allocator, encoded_target_state_vector);
     }
 
-    pub fn applyUpdate(self: *Text, update: []const u8) TextError!void {
+    pub fn applyUpdate(self: *TextImpl, update: []const u8) TextError!void {
         self.applyUpdateOnce(update) catch |err| switch (err) {
             error.MissingDependency => {
                 const copy = try self.allocator.dupe(u8, update);
@@ -286,7 +246,7 @@ pub const Text = struct {
         try self.retryPendingUpdates();
     }
 
-    pub fn toOwnedString(self: *const Text, allocator: std.mem.Allocator) ![]u8 {
+    pub fn toOwnedString(self: *const TextImpl, allocator: std.mem.Allocator) TextError![]u8 {
         var out: std.ArrayList(u8) = .empty;
         errdefer out.deinit(allocator);
 
@@ -304,117 +264,81 @@ pub const Text = struct {
         return try out.toOwnedSlice(allocator);
     }
 
-    pub fn toDelta(self: *const Text, allocator: std.mem.Allocator) TextError!attrs.Delta {
-        var delta: attrs.Delta = .{};
-        errdefer delta.deinit(allocator);
-
-        var active_attrs: std.ArrayList(attrs.Attribute) = .empty;
-        defer active_attrs.deinit(allocator);
-
-        var cursor = self.start;
-        while (cursor) |handle| {
-            const current = self.items.items[handle];
-            if (!current.flags.deleted) {
-                switch (current.content) {
-                    .format => |format_slice| try updateActiveAttrs(self, allocator, &active_attrs, format_slice),
-                    .string => |slice| if (current.flags.countable) {
-                        const inserted_text = try allocator.dupe(u8, self.sliceBytes(slice));
-                        errdefer allocator.free(inserted_text);
-                        const copied_attrs = try copyAttributes(allocator, active_attrs.items);
-                        errdefer freeAttributes(allocator, copied_attrs);
-                        try delta.ops.append(allocator, .{
-                            .insert = inserted_text,
-                            .attributes = copied_attrs,
-                        });
-                    },
-                }
-            }
-            cursor = current.right;
-        }
-
-        return delta;
+    pub fn toDelta(self: *const TextImpl, allocator: std.mem.Allocator) TextError!attrs.Delta {
+        return try delta_mod.toDelta(self, allocator);
     }
 
-    pub fn checkIntegrity(self: *const Text) !void {
-        try self.store.checkIntegrity(self.items.items);
-
-        var previous: ?item_mod.ItemHandle = null;
-        var cursor = self.start;
-        var visible_len: id.Clock = 0;
-        while (cursor) |handle| {
-            if (handle >= self.items.items.len) return error.InvalidHandle;
-            const current = self.items.items[handle];
-            if (current.left != previous) return error.InvalidHandle;
-            if (!current.flags.deleted and current.flags.countable) visible_len += current.len;
-            previous = handle;
-            cursor = current.right;
-        }
-        if (visible_len != self.length) return error.InvalidHandle;
+    pub fn checkIntegrity(self: *const TextImpl) TextError!void {
+        try debug_mod.checkIntegrity(self.debugView());
     }
 
-    pub fn debugItemCount(self: *const Text) usize {
-        return self.items.items.len;
+    pub fn debugItemCount(self: *const TextImpl) usize {
+        return debug_mod.itemCount(self.debugView());
     }
 
-    pub fn debugItemLen(self: *const Text, index: usize) id.Clock {
-        return self.items.items[index].len;
+    pub fn debugItemLen(self: *const TextImpl, index: usize) id.Clock {
+        return debug_mod.itemLen(self.debugView(), index);
     }
 
-    pub fn debugItemDeleted(self: *const Text, index: usize) bool {
-        return self.items.items[index].flags.deleted;
+    pub fn debugItemDeleted(self: *const TextImpl, index: usize) bool {
+        return debug_mod.itemDeleted(self.debugView(), index);
     }
 
-    pub fn debugFindHandleById(self: *const Text, target: id.Id) TextError!item_mod.ItemHandle {
-        return try self.store.findHandleById(self.items.items, target);
+    pub fn debugFindHandleById(self: *const TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
+        return try debug_mod.findHandleById(self.debugView(), target);
     }
 
-    pub fn debugClientState(self: *const Text, client: id.ClientId) id.Clock {
-        return self.store.getState(self.items.items, client);
+    pub fn debugClientState(self: *const TextImpl, client: id.ClientId) id.Clock {
+        return debug_mod.clientState(self.debugView(), client);
     }
 
-    pub fn debugPendingUpdateCount(self: *const Text) usize {
-        return self.pending_updates.items.len;
+    pub fn debugPendingUpdateCount(self: *const TextImpl) usize {
+        return debug_mod.pendingUpdateCount(self.debugView());
     }
 
-    pub fn debugEnsureSearchMarkers(self: *Text) TextError!void {
-        try self.ensureSearchMarkers();
+    pub fn debugEnsureSearchMarkers(self: *TextImpl) TextError!void {
+        try self.search_cache.ensure(self);
     }
 
-    pub fn debugSearchMarkersValid(self: *const Text) bool {
-        return self.search_markers_valid;
+    pub fn debugSearchMarkersValid(self: *const TextImpl) bool {
+        return debug_mod.searchMarkersValid(self.debugView());
     }
 
-    pub fn debugSearchMarkerCount(self: *const Text) usize {
-        return self.search_markers.items.len;
+    pub fn debugSearchMarkerCount(self: *const TextImpl) usize {
+        return debug_mod.searchMarkerCount(self.debugView());
     }
 
-    pub fn debugLiveFormatMarkerCount(self: *const Text, key: []const u8, value: ?[]const u8) usize {
-        var count: usize = 0;
-        for (self.items.items) |item| {
-            if (!item.flags.deleted) {
-                switch (item.content) {
-                    .string => {},
-                    .format => |format_slice| {
-                        if (!std.mem.eql(u8, self.attributeKeyBytes(format_slice), key)) continue;
-                        if (value) |expected_value| {
-                            if (!format_slice.value_is_null and std.mem.eql(u8, self.attributeValueBytes(format_slice), expected_value)) {
-                                count += 1;
-                            }
-                        } else if (format_slice.value_is_null) {
-                            count += 1;
-                        }
-                    },
-                }
-            }
-        }
-        return count;
+    pub fn debugLiveFormatMarkerCount(self: *const TextImpl, key: []const u8, value: ?[]const u8) usize {
+        return debug_mod.liveFormatMarkerCount(self.debugView(), key, value);
     }
 
-    fn findPosition(self: *Text, index: id.Clock) TextError!Position {
+    fn debugView(self: *const TextImpl) debug_mod.View {
+        return .{
+            .store = &self.store,
+            .items = self.items.items,
+            .bytes = self.bytes.items,
+            .start = self.start,
+            .length = self.length,
+            .pending_update_count = self.pending_updates.items.len,
+            .search_markers_valid = self.search_cache.isValid(),
+            .search_marker_count = self.search_cache.count(),
+        };
+    }
+
+    fn encodeView(self: *const TextImpl) sync.EncodeView {
+        return .{
+            .allocator = self.allocator,
+            .store = &self.store,
+            .items = self.items.items,
+            .bytes = self.bytes.items,
+        };
+    }
+
+    fn findPosition(self: *TextImpl, index: id.Clock) TextError!Position {
         if (index > self.length) return error.IndexOutOfBounds;
 
-        try self.ensureSearchMarkers();
-        const nearest = self.findNearestMarker(index);
+        try self.search_cache.ensure(self);
+        const nearest = self.search_cache.nearest(self, index);
         var remaining = nearest.item_offset + (index - nearest.index);
         var left: ?item_mod.ItemHandle = if (nearest.handle) |handle| self.items.items[handle].left else null;
         var cursor = nearest.handle;
@@ -438,49 +362,11 @@ pub const Text = struct {
         return .{ .left = left, .right = null };
     }
 
-    fn ensureSearchMarkers(self: *Text) TextError!void {
-        if (self.search_markers_valid) return;
-
-        self.search_markers.clearRetainingCapacity();
-        var cursor = self.start;
-        var visible_index: id.Clock = 0;
-        var next_marker: id.Clock = 0;
-        while (cursor) |handle| {
-            const current = self.items.items[handle];
-            if (!current.flags.deleted and current.flags.countable) {
-                while (visible_index + current.len > next_marker) {
-                    try self.search_markers.append(self.allocator, .{
-                        .index = next_marker,
-                        .handle = handle,
-                        .item_offset = next_marker - visible_index,
-                    });
-                    next_marker += search_marker_step;
-                }
-                visible_index += current.len;
-            }
-            cursor = current.right;
-        }
-        self.search_markers_valid = true;
+    pub fn invalidateSearchMarkers(self: *TextImpl) void {
+        self.search_cache.invalidate();
     }
 
-    fn findNearestMarker(self: *const Text, index: id.Clock) struct { index: id.Clock, handle: ?item_mod.ItemHandle, item_offset: id.Clock } {
-        var best_index: id.Clock = 0;
-        var best_handle: ?item_mod.ItemHandle = self.start;
-        var best_item_offset: id.Clock = 0;
-        for (self.search_markers.items) |marker| {
-            if (marker.index > index) break;
-            best_index = marker.index;
-            best_handle = marker.handle;
-            best_item_offset = marker.item_offset;
-        }
-        return .{ .index = best_index, .handle = best_handle, .item_offset = best_item_offset };
-    }
-
-    fn invalidateSearchMarkers(self: *Text) void {
-        self.search_markers_valid = false;
-    }
-
-    fn splitItem(self: *Text, handle: item_mod.ItemHandle, offset: id.Clock) TextError!item_mod.ItemHandle {
+    fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.Clock) TextError!item_mod.ItemHandle {
         if (offset == 0 or offset >= self.items.items[handle].len) return handle;
 
         const left_snapshot = self.items.items[handle];
@@ -527,7 +413,7 @@ pub const Text = struct {
         return right_handle;
     }
 
-    fn getItemCleanStart(self: *Text, target: id.Id) TextError!item_mod.ItemHandle {
+    pub fn getItemCleanStart(self: *TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
         const handle = try self.store.findHandleById(self.items.items, target);
         const current = self.items.items[handle];
         if (current.id.clock < target.clock) {
@@ -536,7 +422,7 @@ pub const Text = struct {
         return handle;
     }
 
-    fn getItemCleanEnd(self: *Text, target: id.Id) TextError!item_mod.ItemHandle {
+    pub fn getItemCleanEnd(self: *TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
         const handle = try self.store.findHandleById(self.items.items, target);
         const current = self.items.items[handle];
         const offset = target.clock - current.id.clock + 1;
@@ -546,169 +432,11 @@ pub const Text = struct {
         return handle;
     }
 
-    fn integrateRemoteItem(self: *Text, remote: RemoteItem) TextError!void {
-        const state = self.store.getState(self.items.items, remote.id.client);
-        if (remote.id.clock + remote.len <= state) return;
-        if (remote.id.clock != state) return error.MissingDependency;
-
-        if (remote.initial_left_origin_id) |origin| {
-            if (origin.client != remote.id.client and self.store.getState(self.items.items, origin.client) <= origin.clock) {
-                return error.MissingDependency;
-            }
-        }
-        if (remote.initial_right_origin_id) |right_origin| {
-            if (right_origin.client != remote.id.client and self.store.getState(self.items.items, right_origin.client) <= right_origin.clock) {
-                return error.MissingDependency;
-            }
-        }
-
-        var left: ?item_mod.ItemHandle = if (remote.initial_left_origin_id) |origin|
-            try self.getItemCleanEnd(origin)
-        else
-            null;
-        const right: ?item_mod.ItemHandle = if (remote.initial_right_origin_id) |right_origin|
-            try self.getItemCleanStart(right_origin)
-        else
-            null;
-
-        if ((left == null and (right == null or self.items.items[right.?].left != null)) or
-            (left != null and self.items.items[left.?].right != right))
-        {
-            left = try self.findConflictFreeLeft(left, right, remote);
-        }
-
-        const actual_right = if (left) |left_handle| self.items.items[left_handle].right else self.start;
-        const content: item_mod.Content = switch (remote.content) {
-            .string => |bytes| .{ .string = .{
-                .bytes_start = try self.appendBytes(bytes),
-                .bytes_len = try intCast(u32, bytes.len),
-                .logical_len = remote.len,
-            } },
-            .format => |format_value| .{ .format = try self.appendAttribute(.{
-                .key = format_value.key,
-                .value = format_value.value,
-            }) },
-        };
-        const handle = try self.appendItem(.{
-            .id = remote.id,
-            .len = remote.len,
-            .initial_left_origin_id = remote.initial_left_origin_id,
-            .initial_right_origin_id = remote.initial_right_origin_id,
-            .left = left,
-            .right = actual_right,
-            .content = content,
-            .flags = .{
-                .countable = remote.content == .string,
-                .deleted = false,
-            },
-        });
-
-        try self.store.addStruct(self.allocator, self.items.items, handle);
-        self.linkInserted(handle, left, actual_right);
-        if (remote.content == .string) self.length += remote.len;
+    fn cleanupFormatting(self: *TextImpl) TextError!void {
+        try formatting.cleanup(self);
     }
 
-    fn markDeletedByIdRange(self: *Text, client: id.ClientId, clock: id.Clock, len_to_delete: id.Clock) TextError!void {
-        if (len_to_delete == 0) return;
-        const state = self.store.getState(self.items.items, client);
-        if (state < clock + len_to_delete) return error.MissingDependency;
-
-        const end_clock = clock + len_to_delete;
-        _ = try self.getItemCleanStart(.{ .client = client, .clock = clock });
-        if (end_clock < state) {
-            _ = try self.getItemCleanStart(.{ .client = client, .clock = end_clock });
-        }
-
-        const client_index = self.store.clients.getIndex(client) orelse return error.ClientNotFound;
-        const client_structs = self.store.clients.values()[client_index].items.items;
-        for (client_structs) |handle| {
-            const current = self.items.items[handle];
-            if (current.id.clock >= end_clock) break;
-            if (current.id.clock + current.len <= clock) continue;
-
-            if (!self.items.items[handle].flags.deleted) {
-                self.items.items[handle].flags.deleted = true;
-                self.invalidateSearchMarkers();
-                if (self.items.items[handle].flags.countable) {
-                    self.length -= self.items.items[handle].len;
-                }
-            }
-        }
-    }
-
-    fn findConflictFreeLeft(
-        self: *Text,
-        initial_left: ?item_mod.ItemHandle,
-        right: ?item_mod.ItemHandle,
-        remote: RemoteItem,
-    ) TextError!?item_mod.ItemHandle {
-        var left = initial_left;
-        var scan = if (left) |left_handle| self.items.items[left_handle].right else self.start;
-        var conflicting_items: std.ArrayList(item_mod.ItemHandle) = .empty;
-        defer conflicting_items.deinit(self.allocator);
-        var items_before_origin: std.ArrayList(item_mod.ItemHandle) = .empty;
-        defer items_before_origin.deinit(self.allocator);
-
-        while (scan != null and scan != right) {
-            const candidate_handle = scan.?;
-            const candidate = self.items.items[candidate_handle];
-            try items_before_origin.append(self.allocator, candidate_handle);
-            try conflicting_items.append(self.allocator, candidate_handle);
-
-            if (id.idEql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
-                if (candidate.id.client < remote.id.client) {
-                    left = candidate_handle;
-                    conflicting_items.clearRetainingCapacity();
-                } else if (id.idEql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
-                    break;
-                }
-            } else if (candidate.initial_left_origin_id) |candidate_origin| {
-                const origin_handle = self.store.findHandleById(self.items.items, candidate_origin) catch null;
-                if (origin_handle) |origin| {
-                    if (containsHandle(items_before_origin.items, origin)) {
-                        if (!containsHandle(conflicting_items.items, origin)) {
-                            left = candidate_handle;
-                            conflicting_items.clearRetainingCapacity();
-                        }
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-            scan = candidate.right;
-        }
-
-        return left;
-    }
-
-    fn cleanupFormatting(self: *Text) TextError!void {
-        var active_attrs: std.ArrayList(attrs.Attribute) = .empty;
-        defer active_attrs.deinit(self.allocator);
-
-        var cursor = self.start;
-        while (cursor) |handle| {
-            if (!self.items.items[handle].flags.deleted) {
-                switch (self.items.items[handle].content) {
-                    .string => {},
-                    .format => |format_slice| {
-                        if (formatIsRedundant(self, active_attrs.items, format_slice)) {
-                            self.items.items[handle].flags.deleted = true;
-                            self.invalidateSearchMarkers();
-                        } else {
-                            try updateActiveAttrs(self, self.allocator, &active_attrs, format_slice);
-                        }
-                    },
-                }
-            }
-            cursor = self.items.items[handle].right;
-        }
-    }
-
-    fn retryPendingUpdates(self: *Text) TextError!void {
+    fn retryPendingUpdates(self: *TextImpl) TextError!void {
         var index: usize = 0;
         while (index < self.pending_updates.items.len) {
             const pending = self.pending_updates.items[index];
@@ -725,10 +453,14 @@ pub const Text = struct {
         }
     }
 
-    fn applyUpdateOnce(self: *Text, update: []const u8) TextError!void {
+    fn applyUpdateOnce(self: *TextImpl, update: []const u8) TextError!void {
+        try validateUpdateBytes(update);
+
         var dec = encoding.Decoder.init(update);
-        const magic = try dec.readRaw(update_magic.len);
-        if (!std.mem.eql(u8, magic, update_magic)) return error.InvalidUpdate;
+        const magic = try dec.readRaw(sync.update_magic.len);
+        if (!std.mem.eql(u8, magic, sync.update_magic)) return error.InvalidUpdate;
+        const version = try dec.readByte();
+        if (version != sync.update_version) return error.UnsupportedUpdateVersion;
 
         const client_count = try dec.readVarU64();
         var client_index: usize = 0;
@@ -740,17 +472,17 @@ pub const Text = struct {
                 const clock = try dec.readVarU64();
                 const len_value = try dec.readVarU64();
                 const info = try dec.readByte();
-                const left_origin = if ((info & 1) != 0) try readId(&dec) else null;
-                const right_origin = if ((info & 2) != 0) try readId(&dec) else null;
+                const left_origin = if ((info & 1) != 0) try sync.readId(&dec) else null;
+                const right_origin = if ((info & 2) != 0) try sync.readId(&dec) else null;
                 const content_tag = try dec.readByte();
-                const content: RemoteContent = switch (content_tag) {
-                    content_string_tag => blk: {
+                const content: integrate.RemoteContent = switch (content_tag) {
+                    sync.content_string_tag => blk: {
                         const string_bytes = try dec.readBytes();
                         const logical_len = try utf.scalarCount(string_bytes);
                         if (logical_len != len_value) return error.InvalidUpdate;
                         break :blk .{ .string = string_bytes };
                     },
-                    content_format_tag => blk: {
+                    sync.content_format_tag => blk: {
                         if (len_value != 1) return error.InvalidUpdate;
                         const key = try dec.readBytes();
                         const value_is_null = (try dec.readByte()) != 0;
@@ -762,7 +494,7 @@ pub const Text = struct {
                     },
                     else => return error.UnsupportedContent,
                 };
-                try self.integrateRemoteItem(.{
+                try integrate.item(self, .{
                     .id = .{ .client = client, .clock = clock },
                     .len = len_value,
                     .initial_left_origin_id = left_origin,
@@ -781,116 +513,14 @@ pub const Text = struct {
             while (delete_index < delete_count) : (delete_index += 1) {
                 const clock = try dec.readVarU64();
                 const delete_len = try dec.readVarU64();
-                try self.markDeletedByIdRange(client, clock, delete_len);
+                try integrate.deletedRange(self, client, clock, delete_len);
             }
         }
         try dec.expectEnd();
     }
 
-    fn writeStructs(self: *const Text, enc: *encoding.Encoder, target_state: *const StateVector) TextError!void {
-        var changed_clients: usize = 0;
-        for (self.store.clients.keys(), self.store.clients.values()) |client, client_structs| {
-            const target_clock = target_state.get(client) orelse 0;
-            for (client_structs.items.items) |handle| {
-                const current = self.items.items[handle];
-                if (current.id.clock + current.len > target_clock) {
-                    changed_clients += 1;
-                    break;
-                }
-            }
-        }
-
-        try enc.writeVarU64(changed_clients);
-        for (self.store.clients.keys(), self.store.clients.values()) |client, client_structs| {
-            const target_clock = target_state.get(client) orelse 0;
-            var item_count: usize = 0;
-            for (client_structs.items.items) |handle| {
-                const current = self.items.items[handle];
-                if (current.id.clock + current.len > target_clock) item_count += 1;
-            }
-            if (item_count == 0) continue;
-
-            try enc.writeVarU64(client);
-            try enc.writeVarU64(item_count);
-            for (client_structs.items.items) |handle| {
-                const current = self.items.items[handle];
-                if (current.id.clock + current.len <= target_clock) continue;
-                const offset = if (target_clock > current.id.clock) target_clock - current.id.clock else 0;
-                const write_id: id.Id = .{
-                    .client = current.id.client,
-                    .clock = current.id.clock + offset,
-                };
-                const write_len = current.len - offset;
-                try enc.writeVarU64(write_id.clock);
-                try enc.writeVarU64(write_len);
-                var info: u8 = 0;
-                const left_origin: ?id.Id = if (offset > 0)
-                    .{ .client = current.id.client, .clock = write_id.clock - 1 }
-                else
-                    current.initial_left_origin_id;
-                if (left_origin != null) info |= 1;
-                if (current.initial_right_origin_id != null) info |= 2;
-                try enc.writeByte(info);
-                if (left_origin) |origin| try writeId(enc, origin);
-                if (current.initial_right_origin_id) |right_origin| try writeId(enc, right_origin);
-                switch (current.content) {
-                    .string => |slice| {
-                        try enc.writeByte(content_string_tag);
-                        const item_bytes = self.sliceBytes(slice);
-                        const byte_offset = try utf.byteOffsetForScalarIndex(item_bytes, offset);
-                        try enc.writeBytes(item_bytes[byte_offset..]);
-                    },
-                    .format => |format_slice| {
-                        if (offset != 0) return error.InvalidUpdate;
-                        try enc.writeByte(content_format_tag);
-                        try enc.writeBytes(self.attributeKeyBytes(format_slice));
-                        try enc.writeByte(if (format_slice.value_is_null) 1 else 0);
-                        if (!format_slice.value_is_null) {
-                            try enc.writeBytes(self.attributeValueBytes(format_slice));
-                        }
-                    },
-                }
-            }
-        }
-    }
-
-    fn writeDeleteSet(self: *const Text, enc: *encoding.Encoder) TextError!void {
-        var ds: delete_set_mod.DeleteSet = .{};
-        defer ds.deinit(self.allocator);
-
-        for (self.store.clients.keys(), self.store.clients.values()) |client, client_structs| {
-            var active_start: ?id.Clock = null;
-            var active_len: id.Clock = 0;
-            for (client_structs.items.items) |handle| {
-                const current = self.items.items[handle];
-                if (current.flags.deleted) {
-                    if (active_start == null) active_start = current.id.clock;
-                    active_len += current.len;
-                } else if (active_start) |start_clock| {
-                    try ds.add(self.allocator, client, start_clock, active_len);
-                    active_start = null;
-                    active_len = 0;
-                }
-            }
-            if (active_start) |start_clock| {
-                try ds.add(self.allocator, client, start_clock, active_len);
-            }
-        }
-        ds.sortAndMerge();
-
-        try enc.writeVarU64(ds.clients.count());
-        for (ds.clients.keys(), ds.clients.values()) |client, deletes| {
-            try enc.writeVarU64(client);
-            try enc.writeVarU64(deletes.items.len);
-            for (deletes.items) |delete_item| {
-                try enc.writeVarU64(delete_item.clock);
-                try enc.writeVarU64(delete_item.len);
-            }
-        }
-    }
-
-    fn linkInserted(
-        self: *Text,
+    pub fn linkInserted(
+        self: *TextImpl,
         handle: item_mod.ItemHandle,
         left: ?item_mod.ItemHandle,
         right: ?item_mod.ItemHandle,
@@ -908,19 +538,19 @@ pub const Text = struct {
         self.invalidateSearchMarkers();
     }
 
-    fn appendItem(self: *Text, new_item: item_mod.Item) TextError!item_mod.ItemHandle {
+    pub fn appendItem(self: *TextImpl, new_item: item_mod.Item) TextError!item_mod.ItemHandle {
         const handle = try intCast(item_mod.ItemHandle, self.items.items.len);
         try self.items.append(self.allocator, new_item);
         return handle;
     }
 
-    fn appendBytes(self: *Text, source: []const u8) TextError!u32 {
+    pub fn appendBytes(self: *TextImpl, source: []const u8) TextError!u32 {
         const start = try intCast(u32, self.bytes.items.len);
         try self.bytes.appendSlice(self.allocator, source);
         return start;
     }
 
-    fn appendAttribute(self: *Text, attribute: attrs.Attribute) TextError!item_mod.AttributeSlice {
+    pub fn appendAttribute(self: *TextImpl, attribute: attrs.Attribute) TextError!item_mod.AttributeSlice {
         const key_start = try self.appendBytes(attribute.key);
         return switch (attribute.value) {
             .null => .{
@@ -938,19 +568,178 @@ pub const Text = struct {
         };
     }
 
-    fn sliceBytes(self: *const Text, slice: item_mod.TextSlice) []const u8 {
+    pub fn sliceBytes(self: *const TextImpl, slice: item_mod.TextSlice) []const u8 {
         const start: usize = slice.bytes_start;
         return self.bytes.items[start..][0..slice.bytes_len];
     }
 
-    fn attributeKeyBytes(self: *const Text, slice: item_mod.AttributeSlice) []const u8 {
+    pub fn attributeKeyBytes(self: *const TextImpl, slice: item_mod.AttributeSlice) []const u8 {
         const start: usize = slice.key_start;
         return self.bytes.items[start..][0..slice.key_len];
     }
 
-    fn attributeValueBytes(self: *const Text, slice: item_mod.AttributeSlice) []const u8 {
+    pub fn attributeValueBytes(self: *const TextImpl, slice: item_mod.AttributeSlice) []const u8 {
         const start: usize = slice.value_start;
         return self.bytes.items[start..][0..slice.value_len];
+    }
+};
+
+/// One replicated text CRDT document.
+///
+/// Public indexes are Unicode scalar indexes over valid UTF-8 text. Returned
+/// byte slices and deltas that take an allocator are owned by the caller unless
+/// the function states otherwise.
+pub const Text = struct {
+    /// Implementation storage. Prefer the methods on `Text`; this field exists
+    /// so `Text` can keep value semantics without heap-allocating its body.
+    impl: TextImpl,
+
+    /// Creates an empty text document for `client_id`.
+    ///
+    /// The allocator is retained by the document and used for all internal
+    /// storage until `deinit` is called.
+    pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) Text {
+        return .{ .impl = TextImpl.init(allocator, client_id) };
+    }
+
+    /// Frees all storage owned by this text document.
+    pub fn deinit(self: *Text) void {
+        self.impl.deinit();
+        self.* = undefined;
+    }
+
+    /// Returns the visible document length in Unicode scalar values.
+    pub fn len(self: *const Text) id.Clock {
+        return self.impl.len();
+    }
+
+    /// Inserts valid UTF-8 bytes at `index`.
+    ///
+    /// `index` is a Unicode scalar index. Empty text is a no-op. `bytes` are
+    /// copied into the document before this function returns.
+    pub fn insert(self: *Text, index: id.Clock, bytes: []const u8) TextError!void {
+        try self.impl.insert(index, bytes);
+    }
+
+    /// Inserts valid UTF-8 bytes with formatting attributes at `index`.
+    ///
+    /// Attribute keys and string values are copied into the document. Attribute
+    /// values support only `null` and string values.
+    pub fn insertWithAttrs(
+        self: *Text,
+        index: id.Clock,
+        bytes: []const u8,
+        attributes: []const attrs.Attribute,
+    ) TextError!void {
+        try self.impl.insertWithAttrs(index, bytes, attributes);
+    }
+
+    /// Applies formatting attributes to an existing visible range.
+    ///
+    /// `index` and `format_len` are Unicode scalar units. A `null` attribute
+    /// value clears that attribute over the formatted range.
+    pub fn format(
+        self: *Text,
+        index: id.Clock,
+        format_len: id.Clock,
+        attributes: []const attrs.Attribute,
+    ) TextError!void {
+        try self.impl.format(index, format_len, attributes);
+    }
+
+    /// Deletes `delete_len` visible Unicode scalars starting at `index`.
+    pub fn delete(self: *Text, index: id.Clock, delete_len: id.Clock) TextError!void {
+        try self.impl.delete(index, delete_len);
+    }
+
+    /// Encodes this document's state vector.
+    ///
+    /// The returned byte slice is allocated with `allocator` and must be freed
+    /// by the caller.
+    pub fn encodeStateVector(self: *const Text, allocator: std.mem.Allocator) TextError![]u8 {
+        return try self.impl.encodeStateVector(allocator);
+    }
+
+    /// Encodes an update from `encoded_target_state_vector` to the current state.
+    ///
+    /// Pass `null` to encode the whole document state. The returned byte slice
+    /// is allocated with `allocator` and must be freed by the caller.
+    pub fn encodeStateAsUpdate(
+        self: *const Text,
+        allocator: std.mem.Allocator,
+        encoded_target_state_vector: ?[]const u8,
+    ) TextError![]u8 {
+        return try self.impl.encodeStateAsUpdate(allocator, encoded_target_state_vector);
+    }
+
+    /// Applies an update produced by `encodeStateAsUpdate`.
+    ///
+    /// Updates with missing dependencies are retained internally and retried
+    /// after later successful updates.
+    pub fn applyUpdate(self: *Text, update: []const u8) TextError!void {
+        try self.impl.applyUpdate(update);
+    }
+
+    /// Renders the visible document text as owned UTF-8 bytes.
+    ///
+    /// The returned byte slice is allocated with `allocator` and must be freed
+    /// by the caller.
+    pub fn toOwnedString(self: *const Text, allocator: std.mem.Allocator) TextError![]u8 {
+        return try self.impl.toOwnedString(allocator);
+    }
+
+    /// Renders the document as attributed insert operations.
+    ///
+    /// The returned delta owns all inserted strings and copied attributes. Call
+    /// `Delta.deinit` with the same allocator when done.
+    pub fn toDelta(self: *const Text, allocator: std.mem.Allocator) TextError!attrs.Delta {
+        return try self.impl.toDelta(allocator);
+    }
+};
+
+pub const debug = struct {
+    pub fn checkIntegrity(text: *const Text) TextError!void {
+        try text.impl.checkIntegrity();
+    }
+
+    pub fn itemCount(text: *const Text) usize {
+        return text.impl.debugItemCount();
+    }
+
+    pub fn itemLen(text: *const Text, index: usize) id.Clock {
+        return text.impl.debugItemLen(index);
+    }
+
+    pub fn itemDeleted(text: *const Text, index: usize) bool {
+        return text.impl.debugItemDeleted(index);
+    }
+
+    pub fn findHandleById(text: *const Text, target: id.Id) TextError!item_mod.ItemHandle {
+        return try text.impl.debugFindHandleById(target);
+    }
+
+    pub fn clientState(text: *const Text, client: id.ClientId) id.Clock {
+        return text.impl.debugClientState(client);
+    }
+
+    pub fn pendingUpdateCount(text: *const Text) usize {
+        return text.impl.debugPendingUpdateCount();
+    }
+
+    pub fn ensureSearchMarkers(text: *Text) TextError!void {
+        try text.impl.debugEnsureSearchMarkers();
+    }
+
+    pub fn searchMarkersValid(text: *const Text) bool {
+        return text.impl.debugSearchMarkersValid();
+    }
+
+    pub fn searchMarkerCount(text: *const Text) usize {
+        return text.impl.debugSearchMarkerCount();
+    }
+
+    pub fn liveFormatMarkerCount(text: *const Text, key: []const u8, value: ?[]const u8) usize {
+        return text.impl.debugLiveFormatMarkerCount(key, value);
     }
 };
 
@@ -958,121 +747,53 @@ fn intCast(comptime T: type, value: anytype) error{TextTooLarge}!T {
     return std.math.cast(T, value) orelse error.TextTooLarge;
 }
 
-fn writeId(enc: *encoding.Encoder, value: id.Id) TextError!void {
-    try enc.writeVarU64(value.client);
-    try enc.writeVarU64(value.clock);
-}
+fn validateUpdateBytes(update: []const u8) TextError!void {
+    var dec = encoding.Decoder.init(update);
+    const magic = try dec.readRaw(sync.update_magic.len);
+    if (!std.mem.eql(u8, magic, sync.update_magic)) return error.InvalidUpdate;
+    const version = try dec.readByte();
+    if (version != sync.update_version) return error.UnsupportedUpdateVersion;
 
-fn readId(dec: *encoding.Decoder) TextError!id.Id {
-    return .{
-        .client = try dec.readVarU64(),
-        .clock = try dec.readVarU64(),
-    };
-}
+    const client_count = try dec.readVarU64();
+    var client_index: usize = 0;
+    while (client_index < client_count) : (client_index += 1) {
+        _ = try dec.readVarU64();
+        const item_count = try dec.readVarU64();
+        var item_index: usize = 0;
+        while (item_index < item_count) : (item_index += 1) {
+            _ = try dec.readVarU64();
+            const len_value = try dec.readVarU64();
+            const info = try dec.readByte();
+            if ((info & 1) != 0) _ = try sync.readId(&dec);
+            if ((info & 2) != 0) _ = try sync.readId(&dec);
+            const content_tag = try dec.readByte();
+            switch (content_tag) {
+                sync.content_string_tag => {
+                    const string_bytes = try dec.readBytes();
+                    const logical_len = try utf.scalarCount(string_bytes);
+                    if (logical_len != len_value) return error.InvalidUpdate;
+                },
+                sync.content_format_tag => {
+                    if (len_value != 1) return error.InvalidUpdate;
+                    _ = try dec.readBytes();
+                    const value_is_null = (try dec.readByte()) != 0;
+                    if (!value_is_null) _ = try dec.readBytes();
+                },
+                else => return error.UnsupportedContent,
+            }
+        }
+    }
 
-fn decodeStateVector(allocator: std.mem.Allocator, encoded: []const u8) TextError!StateVector {
-    var state: StateVector = .empty;
-    errdefer state.deinit(allocator);
-
-    if (encoded.len == 0) return state;
-
-    var dec = encoding.Decoder.init(encoded);
-    const count = try dec.readVarU64();
-    var index: usize = 0;
-    while (index < count) : (index += 1) {
-        const client = try dec.readVarU64();
-        const clock = try dec.readVarU64();
-        try state.put(allocator, client, clock);
+    const delete_client_count = try dec.readVarU64();
+    var delete_client_index: usize = 0;
+    while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
+        _ = try dec.readVarU64();
+        const delete_count = try dec.readVarU64();
+        var delete_index: usize = 0;
+        while (delete_index < delete_count) : (delete_index += 1) {
+            _ = try dec.readVarU64();
+            _ = try dec.readVarU64();
+        }
     }
     try dec.expectEnd();
-    return state;
-}
-
-fn updateActiveAttrs(
-    text: *const Text,
-    allocator: std.mem.Allocator,
-    active_attrs: *std.ArrayList(attrs.Attribute),
-    format_slice: item_mod.AttributeSlice,
-) TextError!void {
-    const key = text.attributeKeyBytes(format_slice);
-    for (active_attrs.items, 0..) |attribute, index| {
-        if (std.mem.eql(u8, attribute.key, key)) {
-            if (format_slice.value_is_null) {
-                _ = active_attrs.orderedRemove(index);
-            } else {
-                active_attrs.items[index].value = .{ .string = text.attributeValueBytes(format_slice) };
-            }
-            return;
-        }
-    }
-    if (!format_slice.value_is_null) {
-        try active_attrs.append(allocator, .{
-            .key = key,
-            .value = .{ .string = text.attributeValueBytes(format_slice) },
-        });
-    }
-}
-
-fn formatIsRedundant(
-    text: *const Text,
-    active_attrs: []const attrs.Attribute,
-    format_slice: item_mod.AttributeSlice,
-) bool {
-    const key = text.attributeKeyBytes(format_slice);
-    for (active_attrs) |attribute| {
-        if (std.mem.eql(u8, attribute.key, key)) {
-            if (format_slice.value_is_null) return false;
-            return switch (attribute.value) {
-                .null => false,
-                .string => |value| std.mem.eql(u8, value, text.attributeValueBytes(format_slice)),
-            };
-        }
-    }
-    return format_slice.value_is_null;
-}
-
-fn containsHandle(handles: []const item_mod.ItemHandle, needle: item_mod.ItemHandle) bool {
-    for (handles) |handle| {
-        if (handle == needle) return true;
-    }
-    return false;
-}
-
-fn copyAttributes(allocator: std.mem.Allocator, source: []const attrs.Attribute) TextError![]attrs.Attribute {
-    if (source.len == 0) return &.{};
-    const copied = try allocator.alloc(attrs.Attribute, source.len);
-    errdefer allocator.free(copied);
-
-    var initialized: usize = 0;
-    errdefer {
-        for (copied[0..initialized]) |attribute| {
-            allocator.free(attribute.key);
-            switch (attribute.value) {
-                .null => {},
-                .string => |value| allocator.free(value),
-            }
-        }
-    }
-
-    for (source, 0..) |attribute, index| {
-        copied[index].key = try allocator.dupe(u8, attribute.key);
-        copied[index].value = switch (attribute.value) {
-            .null => .null,
-            .string => |value| .{ .string = try allocator.dupe(u8, value) },
-        };
-        initialized += 1;
-    }
-    return copied;
-}
-
-fn freeAttributes(allocator: std.mem.Allocator, attributes: []attrs.Attribute) void {
-    if (attributes.len == 0) return;
-    for (attributes) |attribute| {
-        allocator.free(attribute.key);
-        switch (attribute.value) {
-            .null => {},
-            .string => |value| allocator.free(value),
-        }
-    }
-    allocator.free(attributes);
 }

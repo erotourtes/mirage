@@ -47,8 +47,8 @@ fn addDiscoveredTests(
     b: *std.Build,
     test_step: *std.Build.Step,
     mod: *std.Build.Module,
-    target: anytype,
-    optimize: anytype,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
 ) void {
     const io = b.graph.io;
     var dir = b.build_root.handle.openDir(io, "tests", .{ .iterate = true }) catch |err| switch (err) {

@@ -236,7 +236,9 @@ crdt-evalution:
   serial-number:
     doi: 10.1145/2034691.2034717
     isbn: 9781450308632
-  url: https://doi.org/10.1145/2034691.2034717
+  url:
+    value: https://doi.org/10.1145/2034691.2034717
+    date: 2026-05-04
 
 crdt-json-joy-rga:
   type: Web
@@ -263,7 +265,9 @@ crdt-peritext-rich-text:
   issue: CSCW2
   serial-number:
     doi: 10.1145/3555644
-  url: https://doi.org/10.1145/3555644
+  url:
+    value: https://doi.org/10.1145/3555644
+    date: 2026-05-04
   page-total: 36
 
 crdt-automerge-github:
@@ -298,7 +302,9 @@ crdt-g-counter-example:
   type: Video
   time-range: 00:01:00-00:32:25
   runtime: 00:37:00
-  url: https://www.youtube.com/watch?v=OOlnp2bZVRs
+  url:
+    value: https://www.youtube.com/watch?v=OOlnp2bZVRs
+    date: 2026-04-18
 
 concurrency-control-classification:
   type: Article
@@ -352,3 +358,32 @@ v8-fast-properties:
   url:
     value: https://v8.dev/blog/fast-properties
     date: 2026-05-04
+
+lamport-time-clocks-ordering:
+  type: Article
+  title: Time, Clocks, and the Ordering of Events in a Distributed System
+  author:
+    - Lamport, Leslie
+  date: 1978-07
+  parent:
+    type: periodical
+    title: Communications of the ACM
+    publisher: Association for Computing Machinery
+    location: New York, NY, USA
+  volume: 21
+  issue: 7
+  page-range: 558-565
+  serial-number:
+    doi: 10.1145/359545.359563
+    issn: 0001-0782
+  url:
+    value: https://doi.org/10.1145/359545.359563
+    date: 2026-05-05
+
+logical-clocks:
+  type: Video
+  title: "Distributed Systems 4.1: Logical time"
+  runtime: 00:24:01
+  url:
+    value: https://youtu.be/x-D8iFU1d-o?si=E8aK3IxsoQnDLXy5
+    date: 2026-05-05

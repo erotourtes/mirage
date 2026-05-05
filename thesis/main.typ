@@ -338,6 +338,31 @@ Yjs is implemented in JavaScript and is designed to work in web browsers. Althou
   stored as tombstones,
 - $H$ is the number of operations that affected the document.
 
+= Implementation
+
+== Id
+
+In distributed systems, physical time is not a reliable source of ordering due to clock skew and network delays. The solution is to use logical clocks @logical-clocks. The implementation uses a Lamport clock which allows to define total order of operations based on their logical timestamps and replica identifiers @lamport-time-clocks-ordering[pp. 560-562]. Formally
+this can be defined as follows:
+
+$
+  (a prec b) arrow.l.r.double.long (C(a) < C(b) or (C(a) = C(b) and r(a) < r(b)))
+$
+
+where $C(a)$ is the Lamport timestamp of operation $a$, and $r(a)$ is the unique identifier of the replica that generated operation $a$. In other words, if event $a$ happened before event $b$, then $C(a) < C(b)$.
+
+#figure(
+  diagrams.lamport-clocks,
+  caption: [Lamport clock updates across three replicas],
+) <fig:lamport-clocks>
+
+Each replica on @fig:lamport-clocks increments its local clock before creating an event. When a message
+is received, the receiver sets its clock to the larger of its current local clock
+and the message timestamp, then increments it. For example, replica $Z$ receives
+$m_3$ with timestamp $4$ while its local clock is $2$, so the next timestamp is
+$max(2, 4) + 1 = 5$.
+
+The same diagram also shows why Lamport timestamps cannot be used as a complete causality test. The events $x$ and $y$ have ordered timestamps, $C(x) = 1$ and $C(y) = 2$, but there is no chain of local steps or messages from $x$ to $y$. Therefore, $C(x) < C(y)$ does not prove that $x$ caused $y$.
 
 
 #bibliography("./bib.yml")

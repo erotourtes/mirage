@@ -1,0 +1,13 @@
+.{
+    .name = .mirage,
+    .version = "0.0.1",
+    .fingerprint = 0xecd09acc4a181a4, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "../LICENSE",
+    },
+}

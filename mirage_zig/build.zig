@@ -40,4 +40,40 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+    addDiscoveredTests(b, test_step, mod, target, optimize);
+}
+
+fn addDiscoveredTests(
+    b: *std.Build,
+    test_step: *std.Build.Step,
+    mod: *std.Build.Module,
+    target: anytype,
+    optimize: anytype,
+) void {
+    const io = b.graph.io;
+    var dir = b.build_root.handle.openDir(io, "tests", .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return,
+        else => @panic("failed to open tests directory"),
+    };
+    defer dir.close(io);
+
+    var iter = dir.iterate();
+    while (iter.next(io) catch @panic("failed to iterate tests directory")) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, "_test.zig")) continue;
+
+        const test_path = std.fs.path.join(b.allocator, &.{ "tests", entry.name }) catch @panic("failed to allocate test path");
+        const test_artifact = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(test_path),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "mirage_lib", .module = mod },
+                },
+            }),
+        });
+        const run_test = b.addRunArtifact(test_artifact);
+        test_step.dependOn(&run_test.step);
+    }
 }

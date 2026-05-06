@@ -6,9 +6,7 @@ pub const Doc = struct {
     text_value: text_mod.Text,
 
     /// Creates one replicated text document for `client_id`.
-    ///
-    /// Mirage currently models one `Doc` as exactly one text CRDT. The allocator
-    /// is retained by the contained text value until `deinit`.
+    /// The allocator is retained by the contained text value until `deinit`.
     pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) Doc {
         return .{
             .text_value = text_mod.Text.init(allocator, client_id),
@@ -21,8 +19,15 @@ pub const Doc = struct {
         self.* = undefined;
     }
 
-    /// Returns the document's single text CRDT.
+    /// Returns the document text CRDT.
     pub fn text(self: *Doc) *text_mod.Text {
         return &self.text_value;
     }
 };
+
+test "Doc init and deinit" {
+    const allocator = std.testing.allocator;
+    var doc = Doc.init(allocator, 1);
+    defer doc.deinit();
+    try std.testing.expectEqual(1, doc.text().impl.client_id);
+}

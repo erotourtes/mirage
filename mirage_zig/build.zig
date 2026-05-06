@@ -4,8 +4,17 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const mod = b.addModule("mirage_lib", .{
-        .root_source_file = b.path("src/root.zig"),
+        .root_source_file = b.path("src/lib/root.zig"),
         .target = target,
+    });
+    const wasm_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+    });
+    const wasm_mod = b.createModule(.{
+        .root_source_file = b.path("src/lib/root.zig"),
+        .target = wasm_target,
+        .optimize = .ReleaseSmall,
     });
 
     const exe = b.addExecutable(.{
@@ -20,6 +29,38 @@ pub fn build(b: *std.Build) void {
         }),
     });
     b.installArtifact(exe);
+
+    const wasm_root_module = b.createModule(.{
+        .root_source_file = b.path("wasm/wasm.zig"),
+        .target = wasm_target,
+        .optimize = .ReleaseSmall,
+        .imports = &.{
+            .{ .name = "mirage_lib", .module = wasm_mod },
+        },
+    });
+    wasm_root_module.export_symbol_names = &.{
+        "alloc",
+        "free",
+        "doc_create",
+        "doc_destroy",
+        "text_len",
+        "text_insert",
+        "text_insert_attr",
+        "text_format",
+        "text_delete",
+        "text_to_string",
+        "text_encode_state_vector",
+        "text_encode_update",
+        "text_apply_update",
+    };
+    const wasm_exe = b.addExecutable(.{
+        .name = "mirage",
+        .root_module = wasm_root_module,
+    });
+    wasm_exe.entry = .disabled;
+    const install_wasm = b.addInstallArtifact(wasm_exe, .{});
+    const wasm_step = b.step("wasm", "Build the WebAssembly artifact");
+    wasm_step.dependOn(&install_wasm.step);
 
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);

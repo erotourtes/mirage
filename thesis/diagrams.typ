@@ -34,6 +34,14 @@
 
 #let clock-label(pos, body) = label-node(pos, text(size: 8pt, body))
 
+#let range-box(body, fill: rgb("#ead7cf")) = box(
+  inset: (x: 5pt, y: 3pt),
+  radius: 2pt,
+  stroke: 0.8pt,
+  fill: fill,
+  body,
+)
+
 
 #let diagrams = (
   ot-basic: ot-diagram(
@@ -174,7 +182,14 @@
     edge(<c1>, <c2>, "-|>"),
     edge(<c2>, <c3>, "-|>"),
 
-    edge(<c2>, <a3>, [$m_1$, $t=2$], "-|>", label-side: center, label-pos: 0.15),
+    edge(
+      <c2>,
+      <a3>,
+      [$m_1$, $t=2$],
+      "-|>",
+      label-side: center,
+      label-pos: 0.15,
+    ),
     edge(<a2>, <b1>, [$m_2$, $t=2$], "-|>", label-side: center, label-pos: 0.3),
     edge(<b2>, <c3>, [$m_3$, $t=4$], "-|>", label-side: center, label-pos: 0.3),
 
@@ -188,5 +203,27 @@
     clock-label((0, 2.34), [local\ $C=1$]),
     clock-label((0.8, 2.34), [$y$: send\ $C=2$]),
     clock-label((4.8, 2.34), [receive\ $max(2, 4)+1=5$]),
+  ),
+  delete-set-merge: stack(
+    dir: ttb,
+    spacing: 0.9em,
+    align(center)[
+      deleted ranges before compaction (clock, len)
+    ],
+    stack(
+      dir: ltr,
+      spacing: 0.6em,
+      range-box($(0, 2)$),
+      range-box($(13, 1)$),
+      range-box($(12, 1)$),
+      range-box($(11, 1)$),
+      range-box($(2, 9)$),
+    ),
+    text(size: 9pt, font: "DejaVu Sans Mono")[sortAndMerge],
+    stack(
+      dir: ltr,
+      spacing: 0.6em,
+      range-box($(0, 14)$, fill: rgb("#d9ead3")),
+    ),
   ),
 )

@@ -387,3 +387,10 @@ logical-clocks:
   url:
     value: https://youtu.be/x-D8iFU1d-o?si=E8aK3IxsoQnDLXy5
     date: 2026-05-05
+
+webassembly-binary-values:
+  type: web
+  title: Binary Format - Values
+  url:
+    value: https://webassembly.github.io/spec/core/binary/values.html
+    date: 2026-05-06

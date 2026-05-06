@@ -364,5 +364,29 @@ $max(2, 4) + 1 = 5$.
 
 The same diagram also shows why Lamport timestamps cannot be used as a complete causality test. The events $x$ and $y$ have ordered timestamps, $C(x) = 1$ and $C(y) = 2$, but there is no chain of local steps or messages from $x$ to $y$. Therefore, $C(x) < C(y)$ does not prove that $x$ caused $y$.
 
+== Deletion
+
+Deletion does not
+remove an item from the CRDT structure, since it will be a non-monotonic update, and will break the ability to merge changes since other replicas may still need the item identifier to integrate concurrent operations.
+
+Instead, the item is marked as deleted.
+
+== Delete set
+
+The delete set is a compact summary of tombstones. During synchronization, the implementation sends
+these deleted items separately as ranges of Lamport clocks grouped by client.
+
+#figure(
+  diagrams.delete-set-merge,
+  caption: [Compacting overlapping delete ranges],
+) <fig:delete-set>
+
+This means a deletion of a long contiguous text fragment can be represented by one range instead of many individual tombstones. For example, all the overlapping ranges in @fig:delete-set are compacted into a single range. The receiver then applies each range by marking the matching local items as deleted.
+
+
+== Encoding
+
+The encoder uses wasm binary encoding specification @webassembly-binary-values, where bytes encode themselves, and integers are encoded using variable-length encoding LEB128. For example, numbers $[0, 127]$ are represented as a single byte, $[128, 16383]$ are represented as two bytes, and so on.
+
 
 #bibliography("./bib.yml")

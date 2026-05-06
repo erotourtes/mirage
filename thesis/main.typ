@@ -342,14 +342,14 @@ Yjs is implemented in JavaScript and is designed to work in web browsers. Althou
 
 == Id
 
-In distributed systems, physical time is not a reliable source of ordering due to clock skew and network delays. The solution is to use logical clocks @logical-clocks. The implementation uses a Lamport clock which allows to define total order of operations based on their logical timestamps and replica identifiers @lamport-time-clocks-ordering[pp. 560-562]. Formally
+In distributed systems, physical time is not a reliable source of ordering due to clock skew and network delays. The solution is to use logical clocks @logical-clocks. This implementation uses Lamport clocks which allows to define total order ($prec$) of operations based on their logical timestamps and replica identifiers @lamport-time-clocks-ordering[pp. 560-562]. Formally
 this can be defined as follows:
 
 $
   (a prec b) arrow.l.r.double.long (C(a) < C(b) or (C(a) = C(b) and r(a) < r(b)))
 $
 
-where $C(a)$ is the Lamport timestamp of operation $a$, and $r(a)$ is the unique identifier of the replica that generated operation $a$. In other words, if event $a$ happened before event $b$, then $C(a) < C(b)$.
+where $C(a)$ is the Lamport timestamp of operation $a$, and $r(a)$ is the unique identifier of the replica that generated operation $a$. This total order is consistent with the happened-before relation ($arrow.r$). If operation $a$ happened before operation $b$, then Lamport clocks guarantee that $C(a) < C(b)$, and therefore $a$ is ordered before $b$: $(a arrow.r b) => C(a) < C(b) => (a prec b)$
 
 #figure(
   diagrams.lamport-clocks,

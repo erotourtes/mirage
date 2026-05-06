@@ -1,7 +1,7 @@
 const std = @import("std");
 const mirage = @import("mirage_lib");
 
-const update_magic = "MZCRDT2";
+const update_magic = "MYPEACE";
 const update_version: u8 = 1;
 
 test "update encoding includes magic and version" {

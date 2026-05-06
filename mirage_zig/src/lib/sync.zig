@@ -6,7 +6,7 @@ const encoding = @import("encoding.zig");
 const delete_set_mod = @import("delete_set.zig");
 const utf = @import("utf.zig");
 
-pub const update_magic = "MZCRDT2";
+pub const update_magic = "MYPEACE";
 pub const update_version: u8 = 1;
 pub const content_string_tag: u8 = 1;
 pub const content_format_tag: u8 = 2;

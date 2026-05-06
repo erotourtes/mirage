@@ -5,7 +5,9 @@ pub const UtfError = error{
     ScalarIndexOutOfBounds,
 };
 
-pub fn scalarCount(bytes: []const u8) UtfError!u64 {
+/// Counts the real number of characters in a UTF-8 byte slice.
+/// It's useful when character occupies more than 1 byte, for example, for emojis.
+pub fn countUnicodeLen(bytes: []const u8) UtfError!u64 {
     if (!std.unicode.utf8ValidateSlice(bytes)) return error.InvalidUtf8;
 
     var count: u64 = 0;
@@ -17,7 +19,9 @@ pub fn scalarCount(bytes: []const u8) UtfError!u64 {
     return count;
 }
 
-pub fn byteOffsetForScalarIndex(bytes: []const u8, scalar_index: u64) UtfError!usize {
+/// Returns the byte offset corresponding to the given character index in a UTF-8 byte slice.
+/// For example, in the string "世界", the index 1 offset by 3 bytes
+pub fn getByteOffsetForCharIndex(bytes: []const u8, scalar_index: u64) UtfError!usize {
     if (!std.unicode.utf8ValidateSlice(bytes)) return error.InvalidUtf8;
 
     var count: u64 = 0;
@@ -28,4 +32,31 @@ pub fn byteOffsetForScalarIndex(bytes: []const u8, scalar_index: u64) UtfError!u
     }
     if (count != scalar_index) return error.ScalarIndexOutOfBounds;
     return index;
+}
+
+const expectEqual = std.testing.expectEqual;
+
+test "countUnicodeLen: counts the number of Unicode scalar values in a UTF-8 byte slice" {
+    const s = "Hello, 世界!";
+    const count = countUnicodeLen(s) catch unreachable;
+    try expectEqual(10, count);
+    try expectEqual(14, s.len);
+}
+
+test "getByteOffsetForCharIndex returns the byte offset for 1 byte characters" {
+    const s = "Hello, 世界!";
+    const offset = getByteOffsetForCharIndex(s, 7) catch unreachable;
+    try expectEqual(7, offset);
+}
+
+test "getByteOffsetForCharIndex returns the byte offset for multi-byte characters" {
+    const s = "Hello, 世界!";
+    const offset = getByteOffsetForCharIndex(s, 8) catch unreachable;
+    try expectEqual(10, offset);
+}
+
+test "getByteOffsetForCharIndex returns the byte offset for multi-byte characters (example)" {
+    const s = "世界!";
+    const offset = getByteOffsetForCharIndex(s, 1) catch unreachable;
+    try expectEqual(3, offset);
 }

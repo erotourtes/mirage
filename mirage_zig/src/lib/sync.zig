@@ -141,7 +141,7 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
                 .string => |slice| {
                     try enc.writeByte(content_string_tag);
                     const item_bytes = sliceBytes(view, slice);
-                    const byte_offset = try utf.byteOffsetForScalarIndex(item_bytes, offset);
+                    const byte_offset = try utf.getByteOffsetForCharIndex(item_bytes, offset);
                     try enc.writeBytes(item_bytes[byte_offset..]);
                 },
                 .format => |format_slice| {

@@ -68,7 +68,7 @@ pub const TextImpl = struct {
 
     pub fn insert(self: *TextImpl, index: id.Clock, bytes: []const u8) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
-        const logical_len = try utf.scalarCount(bytes);
+        const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return;
 
         const pos = try self.findPosition(index);
@@ -82,7 +82,7 @@ pub const TextImpl = struct {
         attributes: []const attrs.Attribute,
     ) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
-        const logical_len = try utf.scalarCount(bytes);
+        const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return;
 
         var pos = try self.findPosition(index);
@@ -134,7 +134,7 @@ pub const TextImpl = struct {
     }
 
     fn insertStringAt(self: *TextImpl, pos: Position, bytes: []const u8) TextError!item_mod.ItemHandle {
-        const logical_len = try utf.scalarCount(bytes);
+        const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return error.IndexOutOfBounds;
 
         const bytes_start = try self.appendBytes(bytes);
@@ -375,7 +375,7 @@ pub const TextImpl = struct {
             .format => return error.UnsupportedContent,
         };
         const full_bytes = self.sliceBytes(slice);
-        const byte_offset = try utf.byteOffsetForScalarIndex(full_bytes, offset);
+        const byte_offset = try utf.getByteOffsetForCharIndex(full_bytes, offset);
         const right_bytes_len = slice.bytes_len - try intCast(u32, byte_offset);
         const right_len = left_snapshot.len - offset;
 
@@ -478,7 +478,7 @@ pub const TextImpl = struct {
                 const content: integrate.RemoteContent = switch (content_tag) {
                     sync.content_string_tag => blk: {
                         const string_bytes = try dec.readBytes();
-                        const logical_len = try utf.scalarCount(string_bytes);
+                        const logical_len = try utf.countUnicodeLen(string_bytes);
                         if (logical_len != len_value) return error.InvalidUpdate;
                         break :blk .{ .string = string_bytes };
                     },
@@ -770,7 +770,7 @@ fn validateUpdateBytes(update: []const u8) TextError!void {
             switch (content_tag) {
                 sync.content_string_tag => {
                     const string_bytes = try dec.readBytes();
-                    const logical_len = try utf.scalarCount(string_bytes);
+                    const logical_len = try utf.countUnicodeLen(string_bytes);
                     if (logical_len != len_value) return error.InvalidUpdate;
                 },
                 sync.content_format_tag => {

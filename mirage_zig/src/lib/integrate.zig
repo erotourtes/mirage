@@ -131,11 +131,11 @@ fn findConflictFreeLeft(
         try items_before_origin.append(text.allocator, candidate_handle);
         try conflicting_items.append(text.allocator, candidate_handle);
 
-        if (id.idEql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
+        if (id.check_if_id_eql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
             if (candidate.id.client < remote.id.client) {
                 left = candidate_handle;
                 conflicting_items.clearRetainingCapacity();
-            } else if (id.idEql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
+            } else if (id.check_if_id_eql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
                 break;
             }
         } else if (candidate.initial_left_origin_id) |candidate_origin| {

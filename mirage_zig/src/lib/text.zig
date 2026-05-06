@@ -267,50 +267,6 @@ pub const TextImpl = struct {
         return try delta_mod.toDelta(self, allocator);
     }
 
-    pub fn checkIntegrity(self: *const TextImpl) TextError!void {
-        try debug_mod.checkIntegrity(self.debugView());
-    }
-
-    pub fn debugItemCount(self: *const TextImpl) usize {
-        return debug_mod.itemCount(self.debugView());
-    }
-
-    pub fn debugItemLen(self: *const TextImpl, index: usize) id.Clock {
-        return debug_mod.itemLen(self.debugView(), index);
-    }
-
-    pub fn debugItemDeleted(self: *const TextImpl, index: usize) bool {
-        return debug_mod.itemDeleted(self.debugView(), index);
-    }
-
-    pub fn debugFindHandleById(self: *const TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
-        return try debug_mod.findHandleById(self.debugView(), target);
-    }
-
-    pub fn debugClientState(self: *const TextImpl, client: id.ClientId) id.Clock {
-        return debug_mod.clientState(self.debugView(), client);
-    }
-
-    pub fn debugPendingUpdateCount(self: *const TextImpl) usize {
-        return debug_mod.pendingUpdateCount(self.debugView());
-    }
-
-    pub fn debugEnsureSearchMarkers(self: *TextImpl) TextError!void {
-        try self.search_cache.ensure(self);
-    }
-
-    pub fn debugSearchMarkersValid(self: *const TextImpl) bool {
-        return debug_mod.searchMarkersValid(self.debugView());
-    }
-
-    pub fn debugSearchMarkerCount(self: *const TextImpl) usize {
-        return debug_mod.searchMarkerCount(self.debugView());
-    }
-
-    pub fn debugLiveFormatMarkerCount(self: *const TextImpl, key: []const u8, value: ?[]const u8) usize {
-        return debug_mod.liveFormatMarkerCount(self.debugView(), key, value);
-    }
-
     fn debugView(self: *const TextImpl) debug_mod.View {
         return .{
             .store = &self.store,
@@ -698,47 +654,47 @@ pub const Text = struct {
 
 pub const debug = struct {
     pub fn checkIntegrity(text: *const Text) TextError!void {
-        try text.impl.checkIntegrity();
+        try debug_mod.checkIntegrity(text.impl.debugView());
     }
 
     pub fn itemCount(text: *const Text) usize {
-        return text.impl.debugItemCount();
+        return debug_mod.itemCount(text.impl.debugView());
     }
 
     pub fn itemLen(text: *const Text, index: usize) id.Clock {
-        return text.impl.debugItemLen(index);
+        return debug_mod.itemLen(text.impl.debugView(), index);
     }
 
     pub fn itemDeleted(text: *const Text, index: usize) bool {
-        return text.impl.debugItemDeleted(index);
+        return debug_mod.itemDeleted(text.impl.debugView(), index);
     }
 
     pub fn findHandleById(text: *const Text, target: id.Id) TextError!item_mod.ItemHandle {
-        return try text.impl.debugFindHandleById(target);
+        return try debug_mod.findHandleById(text.impl.debugView(), target);
     }
 
     pub fn clientState(text: *const Text, client: id.ClientId) id.Clock {
-        return text.impl.debugClientState(client);
+        return debug_mod.clientState(text.impl.debugView(), client);
     }
 
     pub fn pendingUpdateCount(text: *const Text) usize {
-        return text.impl.debugPendingUpdateCount();
+        return debug_mod.pendingUpdateCount(text.impl.debugView());
     }
 
     pub fn ensureSearchMarkers(text: *Text) TextError!void {
-        try text.impl.debugEnsureSearchMarkers();
+        try text.impl.search_cache.ensure(&text.impl);
     }
 
     pub fn searchMarkersValid(text: *const Text) bool {
-        return text.impl.debugSearchMarkersValid();
+        return debug_mod.searchMarkersValid(text.impl.debugView());
     }
 
     pub fn searchMarkerCount(text: *const Text) usize {
-        return text.impl.debugSearchMarkerCount();
+        return debug_mod.searchMarkerCount(text.impl.debugView());
     }
 
     pub fn liveFormatMarkerCount(text: *const Text, key: []const u8, value: ?[]const u8) usize {
-        return text.impl.debugLiveFormatMarkerCount(key, value);
+        return debug_mod.liveFormatMarkerCount(text.impl.debugView(), key, value);
     }
 };
 

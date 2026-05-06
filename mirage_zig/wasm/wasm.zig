@@ -10,8 +10,6 @@ const ErrorCode = enum(u32) {
     operation_failed = 4,
 };
 
-pub fn main() void {}
-
 export fn alloc(len: usize) usize {
     const bytes = allocator().alloc(u8, len) catch return 0;
     return @intFromPtr(bytes.ptr);
@@ -140,10 +138,11 @@ export fn text_apply_update(doc_handle: usize, update_ptr: usize, update_len: us
 }
 
 fn allocator() std.mem.Allocator {
-    if (comptime builtin.target.cpu.arch == .wasm32 or builtin.target.cpu.arch == .wasm64) {
-        return std.heap.wasm_allocator;
+    comptime {
+        const arch = builtin.target.cpu.arch;
+        std.debug.assert(arch == .wasm32 or arch == .wasm64);
     }
-    return std.heap.page_allocator;
+    return std.heap.wasm_allocator;
 }
 
 fn asDoc(handle: usize) ?*mirage.Doc {

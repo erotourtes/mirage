@@ -18,7 +18,7 @@ pub const ClientStructs = struct {
 };
 
 pub const StructStore = struct {
-    clients: std.AutoArrayHashMapUnmanaged(id.ClientId, ClientStructs) = .empty,
+    clients: std.array_hash_map.Auto(id.ClientId, ClientStructs) = .empty,
 
     pub fn deinit(self: *StructStore, allocator: std.mem.Allocator) void {
         for (self.clients.values()) |*client_structs| {

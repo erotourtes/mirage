@@ -18,7 +18,9 @@
             "args": [
                 "test",
                 "${input:zigTestFile}",
+                "-ODebug",
                 "-fno-strip",
+                "-fno-omit-frame-pointer",
                 "-fllvm",
                 "--test-no-exec",
                 "--test-filter",

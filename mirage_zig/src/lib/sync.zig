@@ -21,7 +21,7 @@ pub const Error = error{
     TrailingBytes,
 } || std.mem.Allocator.Error || store_mod.StoreError;
 
-pub const StateVector = std.AutoArrayHashMapUnmanaged(id.ClientId, id.Clock);
+pub const StateVector = std.array_hash_map.Auto(id.ClientId, id.Clock);
 
 pub const EncodeView = struct {
     allocator: std.mem.Allocator,

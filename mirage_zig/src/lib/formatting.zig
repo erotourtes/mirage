@@ -1,7 +1,7 @@
 const std = @import("std");
 const attrs = @import("attrs.zig");
 const item_mod = @import("item.zig");
-const text_mod = @import("text.zig");
+const text_mod = @import("text/impl.zig");
 
 pub const OwnedAttribute = struct {
     attribute: attrs.Attribute,

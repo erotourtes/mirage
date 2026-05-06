@@ -1,7 +1,7 @@
 const std = @import("std");
 const attrs = @import("attrs.zig");
 const formatting = @import("formatting.zig");
-const text_mod = @import("text.zig");
+const text_mod = @import("text/impl.zig");
 
 pub fn toDelta(text: *const text_mod.TextImpl, allocator: std.mem.Allocator) !attrs.Delta {
     var delta: attrs.Delta = .{};

@@ -110,11 +110,11 @@ fn addTests(
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
 
-    addDiscoveredStandaloneTests(b, test_step, target, optimize, "src/lib", ".zig", &.{}) catch |err| {
+    addDiscoveredImportTests(b, test_step, target, optimize, "src/lib", ".zig", "all_lib_tests.zig", &.{}) catch |err| {
         std.debug.print("failed to add discovered library tests: {}\n", .{err});
         @panic("Failed to add discovered library tests");
     };
-    addDiscoveredStandaloneTests(b, test_step, target, optimize, "tests", "_test.zig", &.{
+    addDiscoveredImportTests(b, test_step, target, optimize, "tests", "_test.zig", "all_external_tests.zig", &.{
         .{ .name = "mirage_lib", .module = mod },
     }) catch |err| {
         std.debug.print("failed to add discovered tests: {}\n", .{err});
@@ -124,14 +124,46 @@ fn addTests(
     return test_step;
 }
 
-fn addDiscoveredStandaloneTests(
+fn addDiscoveredImportTests(
     b: *std.Build,
     test_step: *std.Build.Step,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     dir_path: []const u8,
     suffix: []const u8,
+    generated_root_name: []const u8,
     imports: []const std.Build.Module.Import,
+) !void {
+    var contents: std.ArrayList(u8) = .empty;
+    defer contents.deinit(b.allocator);
+
+    try contents.appendSlice(b.allocator, "test {\n");
+    try appendDiscoveredImports(b, &contents, dir_path, dir_path, suffix);
+    try contents.appendSlice(b.allocator, "}\n");
+
+    const generated = b.addWriteFiles();
+    _ = generated.addCopyDirectory(b.path(dir_path), ".", .{ .include_extensions = &.{".zig"} });
+    const root_source_file = generated.add(generated_root_name, contents.items);
+
+    const test_artifact = b.addTest(.{
+        .use_llvm = true,
+        .root_module = b.createModule(.{
+            .root_source_file = root_source_file,
+            .target = target,
+            .optimize = optimize,
+            .imports = imports,
+        }),
+    });
+    const run_test = b.addRunArtifact(test_artifact);
+    test_step.dependOn(&run_test.step);
+}
+
+fn appendDiscoveredImports(
+    b: *std.Build,
+    contents: *std.ArrayList(u8),
+    base_path: []const u8,
+    dir_path: []const u8,
+    suffix: []const u8,
 ) !void {
     const io = b.graph.io;
     var dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
@@ -142,20 +174,23 @@ fn addDiscoveredStandaloneTests(
 
     var iter = dir.iterate();
     while (try iter.next(io)) |entry| {
-        if (entry.kind != .file) continue;
-        if (!std.mem.endsWith(u8, entry.name, suffix)) continue;
+        const entry_path = std.fs.path.join(b.allocator, &.{ dir_path, entry.name }) catch @panic("failed to allocate import path");
 
-        const test_path = std.fs.path.join(b.allocator, &.{ dir_path, entry.name }) catch @panic("failed to allocate test path");
-        const test_artifact = b.addTest(.{
-            .use_llvm = true,
-            .root_module = b.createModule(.{
-                .root_source_file = b.path(test_path),
-                .target = target,
-                .optimize = optimize,
-                .imports = imports,
-            }),
-        });
-        const run_test = b.addRunArtifact(test_artifact);
-        test_step.dependOn(&run_test.step);
+        switch (entry.kind) {
+            .directory => {
+                try appendDiscoveredImports(b, contents, base_path, entry_path, suffix);
+            },
+            .file => {
+                if (!std.mem.endsWith(u8, entry.name, suffix)) continue;
+
+                const import_path = if (std.mem.eql(u8, dir_path, base_path))
+                    entry.name
+                else
+                    entry_path[base_path.len + 1 ..];
+                const import_line = try std.fmt.allocPrint(b.allocator, "    _ = @import(\"{s}\");\n", .{import_path});
+                try contents.appendSlice(b.allocator, import_line);
+            },
+            else => continue,
+        }
     }
 }

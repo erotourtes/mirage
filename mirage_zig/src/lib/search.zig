@@ -1,7 +1,7 @@
 const std = @import("std");
 const id = @import("id.zig");
 const item_mod = @import("item.zig");
-const text_mod = @import("text.zig");
+const text_mod = @import("text/impl.zig");
 
 const marker_step: id.Clock = 32;
 

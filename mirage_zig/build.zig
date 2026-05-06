@@ -1,22 +1,25 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const mod = b.addModule("mirage_lib", .{
         .root_source_file = b.path("src/lib/root.zig"),
         .target = target,
     });
-    const wasm_target = b.resolveTargetQuery(.{
-        .cpu_arch = .wasm32,
-        .os_tag = .freestanding,
-    });
-    const wasm_mod = b.createModule(.{
-        .root_source_file = b.path("src/lib/root.zig"),
-        .target = wasm_target,
-        .optimize = .ReleaseSmall,
-    });
 
+    const test_step = addTests(b, target, optimize, mod);
+    addExeModule(b, target, optimize, mod, test_step);
+    addWasmModule(b, optimize);
+}
+
+fn addExeModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    mod: *std.Build.Module,
+    test_step: *std.Build.Step,
+) void {
     const exe = b.addExecutable(.{
         .name = "mirage",
         .root_module = b.createModule(.{
@@ -30,10 +33,39 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
+    const run_step = b.step("run", "Run the app");
+    const run_cmd = b.addRunArtifact(exe);
+    run_step.dependOn(&run_cmd.step);
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const exe_tests = b.addTest(.{
+        .root_module = exe.root_module,
+    });
+    const run_exe_tests = b.addRunArtifact(exe_tests);
+    test_step.dependOn(&run_exe_tests.step);
+}
+
+fn addWasmModule(
+    b: *std.Build,
+    optimize: std.builtin.OptimizeMode,
+) void {
+    const wasm_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+    });
+    const wasm_mod = b.createModule(.{
+        .root_source_file = b.path("src/lib/root.zig"),
+        .target = wasm_target,
+        .optimize = optimize,
+    });
+
     const wasm_root_module = b.createModule(.{
         .root_source_file = b.path("wasm/wasm.zig"),
         .target = wasm_target,
-        .optimize = .ReleaseSmall,
+        .optimize = optimize,
         .imports = &.{
             .{ .name = "mirage_lib", .module = wasm_mod },
         },
@@ -61,27 +93,27 @@ pub fn build(b: *std.Build) void {
     const install_wasm = b.addInstallArtifact(wasm_exe, .{});
     const wasm_step = b.step("wasm", "Build the WebAssembly artifact");
     wasm_step.dependOn(&install_wasm.step);
+}
 
-    const run_step = b.step("run", "Run the app");
-    const run_cmd = b.addRunArtifact(exe);
-    run_step.dependOn(&run_cmd.step);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-
+fn addTests(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    mod: *std.Build.Module,
+) *std.Build.Step {
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
     const run_mod_tests = b.addRunArtifact(mod_tests);
-    const exe_tests = b.addTest(.{
-        .root_module = exe.root_module,
-    });
-    const run_exe_tests = b.addRunArtifact(exe_tests);
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
-    test_step.dependOn(&run_exe_tests.step);
-    addDiscoveredTests(b, test_step, mod, target, optimize);
+
+    addDiscoveredTests(b, test_step, mod, target, optimize) catch |err| {
+        std.debug.print("failed to add discovered tests: {}\n", .{err});
+        @panic("Failed to add discovered tests");
+    };
+
+    return test_step;
 }
 
 fn addDiscoveredTests(
@@ -90,16 +122,16 @@ fn addDiscoveredTests(
     mod: *std.Build.Module,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) void {
+) !void {
     const io = b.graph.io;
     var dir = b.build_root.handle.openDir(io, "tests", .{ .iterate = true }) catch |err| switch (err) {
         error.FileNotFound => return,
-        else => @panic("failed to open tests directory"),
+        else => return err,
     };
     defer dir.close(io);
 
     var iter = dir.iterate();
-    while (iter.next(io) catch @panic("failed to iterate tests directory")) |entry| {
+    while (try iter.next(io)) |entry| {
         if (entry.kind != .file) continue;
         if (!std.mem.endsWith(u8, entry.name, "_test.zig")) continue;
 

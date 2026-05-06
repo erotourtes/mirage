@@ -110,7 +110,13 @@ fn addTests(
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
 
-    addDiscoveredTests(b, test_step, mod, target, optimize) catch |err| {
+    addDiscoveredStandaloneTests(b, test_step, target, optimize, "src/lib", ".zig", &.{}) catch |err| {
+        std.debug.print("failed to add discovered library tests: {}\n", .{err});
+        @panic("Failed to add discovered library tests");
+    };
+    addDiscoveredStandaloneTests(b, test_step, target, optimize, "tests", "_test.zig", &.{
+        .{ .name = "mirage_lib", .module = mod },
+    }) catch |err| {
         std.debug.print("failed to add discovered tests: {}\n", .{err});
         @panic("Failed to add discovered tests");
     };
@@ -118,15 +124,17 @@ fn addTests(
     return test_step;
 }
 
-fn addDiscoveredTests(
+fn addDiscoveredStandaloneTests(
     b: *std.Build,
     test_step: *std.Build.Step,
-    mod: *std.Build.Module,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    dir_path: []const u8,
+    suffix: []const u8,
+    imports: []const std.Build.Module.Import,
 ) !void {
     const io = b.graph.io;
-    var dir = b.build_root.handle.openDir(io, "tests", .{ .iterate = true }) catch |err| switch (err) {
+    var dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
         error.FileNotFound => return,
         else => return err,
     };
@@ -135,18 +143,16 @@ fn addDiscoveredTests(
     var iter = dir.iterate();
     while (try iter.next(io)) |entry| {
         if (entry.kind != .file) continue;
-        if (!std.mem.endsWith(u8, entry.name, "_test.zig")) continue;
+        if (!std.mem.endsWith(u8, entry.name, suffix)) continue;
 
-        const test_path = std.fs.path.join(b.allocator, &.{ "tests", entry.name }) catch @panic("failed to allocate test path");
+        const test_path = std.fs.path.join(b.allocator, &.{ dir_path, entry.name }) catch @panic("failed to allocate test path");
         const test_artifact = b.addTest(.{
             .use_llvm = true,
             .root_module = b.createModule(.{
                 .root_source_file = b.path(test_path),
                 .target = target,
                 .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "mirage_lib", .module = mod },
-                },
+                .imports = imports,
             }),
         });
         const run_test = b.addRunArtifact(test_artifact);

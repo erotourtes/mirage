@@ -95,16 +95,19 @@ pub fn updateActiveAttrs(
 ) !void {
     const key = text.attributeKeyBytes(format_slice);
     for (active_attrs.items, 0..) |attribute, index| {
-        if (std.mem.eql(u8, attribute.key, key)) {
-            if (format_slice.value_is_null) {
-                _ = active_attrs.orderedRemove(index);
-            } else {
-                active_attrs.items[index].value = .{ .string = text.attributeValueBytes(format_slice) };
-            }
-            return;
+        const is_found_key = std.mem.eql(u8, attribute.key, key);
+        if (!is_found_key) {
+            continue;
         }
+        if (format_slice.value_is_null) {
+            _ = active_attrs.orderedRemove(index);
+        } else {
+            active_attrs.items[index].value = .{ .string = text.attributeValueBytes(format_slice) };
+        }
+        return;
     }
-    if (!format_slice.value_is_null) {
+    const should_append_new_attr = !format_slice.value_is_null;
+    if (should_append_new_attr) {
         try active_attrs.append(allocator, .{
             .key = key,
             .value = .{ .string = text.attributeValueBytes(format_slice) },
@@ -178,18 +181,16 @@ fn hasVisibleContentBeforeNextSameKey(
 }
 
 pub fn copyAttributes(allocator: std.mem.Allocator, source: []const attrs.Attribute) ![]attrs.Attribute {
-    if (source.len == 0) return &.{};
+    if (source.len == 0) {
+        return &.{};
+    }
     const copied = try allocator.alloc(attrs.Attribute, source.len);
     errdefer allocator.free(copied);
 
     var initialized: usize = 0;
     errdefer {
         for (copied[0..initialized]) |attribute| {
-            allocator.free(attribute.key);
-            switch (attribute.value) {
-                .null => {},
-                .string => |value| allocator.free(value),
-            }
+            freeAttribute(allocator, attribute);
         }
     }
 
@@ -207,11 +208,15 @@ pub fn copyAttributes(allocator: std.mem.Allocator, source: []const attrs.Attrib
 pub fn freeAttributes(allocator: std.mem.Allocator, attributes: []attrs.Attribute) void {
     if (attributes.len == 0) return;
     for (attributes) |attribute| {
-        allocator.free(attribute.key);
-        switch (attribute.value) {
-            .null => {},
-            .string => |value| allocator.free(value),
-        }
+        freeAttribute(allocator, attribute);
     }
     allocator.free(attributes);
+}
+
+fn freeAttribute(allocator: std.mem.Allocator, attribute: attrs.Attribute) void {
+    allocator.free(attribute.key);
+    switch (attribute.value) {
+        .null => {},
+        .string => |value| allocator.free(value),
+    }
 }

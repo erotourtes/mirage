@@ -3,9 +3,10 @@ const id = @import("id.zig");
 pub const ItemHandle = u32;
 
 pub const ItemFlags = packed struct {
+    /// Whether this item contributes to the visible text length
     countable: bool,
+    /// Whether this item is converted to tombstone
     deleted: bool,
-    keep: bool = false,
 };
 
 pub const TextSlice = struct {
@@ -25,13 +26,6 @@ pub const AttributeSlice = struct {
 pub const Content = union(enum) {
     string: TextSlice,
     format: AttributeSlice,
-
-    pub fn get_clock_len(self: Content) id.Clock {
-        return switch (self) {
-            .string => |slice| slice.logical_len,
-            .format => 1,
-        };
-    }
 };
 
 pub const Item = struct {
@@ -58,7 +52,10 @@ pub const Item = struct {
     /// - {client, clock + 1}
     /// - {client, clock + 2}
     pub fn getClockLen(self: Item) id.Clock {
-        return self.content.get_clock_len();
+        return switch (self.content) {
+            .string => |slice| slice.logical_len,
+            .format => 1,
+        };
     }
 
     pub fn getLastId(self: Item) id.Id {

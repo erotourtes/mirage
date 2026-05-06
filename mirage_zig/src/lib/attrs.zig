@@ -8,9 +8,7 @@ pub const AttributeValue = union(enum) {
 };
 
 pub const Attribute = struct {
-    /// Attribute key, such as "bold" or "color".
     key: []const u8,
-    /// Attribute value. Mirage intentionally supports only null and strings.
     value: AttributeValue,
 };
 
@@ -47,3 +45,18 @@ pub const Delta = struct {
         self.* = undefined;
     }
 };
+
+test "DeltaOp deinit frees the insert and attributes" {
+    var allocator = std.testing.allocator;
+    var attributes = allocator.alloc(Attribute, 2) catch unreachable;
+    attributes[0] = Attribute{
+        .key = allocator.dupe(u8, "bold") catch unreachable,
+        .value = .{ .string = allocator.dupe(u8, "true") catch unreachable },
+    };
+    attributes[1] = Attribute{
+        .key = allocator.dupe(u8, "color") catch unreachable,
+        .value = .null,
+    };
+    var op = DeltaOp{ .insert = allocator.dupe(u8, "Hello, world!") catch unreachable, .attributes = attributes };
+    op.deinit(allocator);
+}

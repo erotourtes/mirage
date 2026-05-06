@@ -24,7 +24,7 @@ pub fn checkIntegrity(view: View) !void {
         if (handle >= view.items.len) return error.InvalidHandle;
         const current = view.items[handle];
         if (current.left != previous) return error.InvalidHandle;
-        if (!current.flags.deleted and current.flags.countable) visible_len += current.len;
+        if (!current.flags.deleted and current.flags.countable) visible_len += current.getClockLen();
         previous = handle;
         cursor = current.right;
     }
@@ -36,7 +36,7 @@ pub fn itemCount(view: View) usize {
 }
 
 pub fn itemLen(view: View, index: usize) id.Clock {
-    return view.items[index].len;
+    return view.items[index].getClockLen();
 }
 
 pub fn itemDeleted(view: View, index: usize) bool {

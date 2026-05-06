@@ -67,7 +67,6 @@ pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
     };
     const handle = try text.appendItem(.{
         .id = remote.id,
-        .len = remote.len,
         .initial_left_origin_id = remote.initial_left_origin_id,
         .initial_right_origin_id = remote.initial_right_origin_id,
         .left = left,
@@ -100,13 +99,13 @@ pub fn deletedRange(text: *text_mod.TextImpl, client: id.ClientId, clock: id.Clo
     for (client_structs) |handle| {
         const current = text.items.items[handle];
         if (current.id.clock >= end_clock) break;
-        if (current.id.clock + current.len <= clock) continue;
+        if (current.id.clock + current.getClockLen() <= clock) continue;
 
         if (!text.items.items[handle].flags.deleted) {
             text.items.items[handle].flags.deleted = true;
             text.invalidateSearchMarkers();
             if (text.items.items[handle].flags.countable) {
-                text.length -= text.items.items[handle].len;
+                text.length -= text.items.items[handle].getClockLen();
             }
         }
     }
@@ -131,11 +130,11 @@ fn findConflictFreeLeft(
         try items_before_origin.append(text.allocator, candidate_handle);
         try conflicting_items.append(text.allocator, candidate_handle);
 
-        if (id.check_if_id_eql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
+        if (id.checkIfIdEql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
             if (candidate.id.client < remote.id.client) {
                 left = candidate_handle;
                 conflicting_items.clearRetainingCapacity();
-            } else if (id.check_if_id_eql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
+            } else if (id.checkIfIdEql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
                 break;
             }
         } else if (candidate.initial_left_origin_id) |candidate_origin| {

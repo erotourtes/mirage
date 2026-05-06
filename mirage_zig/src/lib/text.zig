@@ -143,8 +143,7 @@ pub const TextImpl = struct {
                 .client = self.client_id,
                 .clock = self.store.getState(self.items.items, self.client_id),
             },
-            .len = logical_len,
-            .initial_left_origin_id = if (pos.left) |left| self.items.items[left].lastId() else null,
+            .initial_left_origin_id = if (pos.left) |left| self.items.items[left].getLastId() else null,
             .initial_right_origin_id = if (pos.right) |right| self.items.items[right].id else null,
             .left = pos.left,
             .right = pos.right,
@@ -172,8 +171,7 @@ pub const TextImpl = struct {
                 .client = self.client_id,
                 .clock = self.store.getState(self.items.items, self.client_id),
             },
-            .len = 1,
-            .initial_left_origin_id = if (pos.left) |left| self.items.items[left].lastId() else null,
+            .initial_left_origin_id = if (pos.left) |left| self.items.items[left].getLastId() else null,
             .initial_right_origin_id = if (pos.right) |right| self.items.items[right].id else null,
             .left = pos.left,
             .right = pos.right,
@@ -203,12 +201,13 @@ pub const TextImpl = struct {
                 pos = .{ .left = handle, .right = current.right };
                 continue;
             }
-            if (current.len > remaining) {
+            const current_len = current.getClockLen();
+            if (current_len > remaining) {
                 _ = try self.splitItem(handle, remaining);
             }
 
             const delete_handle = handle;
-            const deleted_len = self.items.items[delete_handle].len;
+            const deleted_len = self.items.items[delete_handle].getClockLen();
             self.items.items[delete_handle].flags.deleted = true;
             self.invalidateSearchMarkers();
             self.length -= deleted_len;
@@ -348,11 +347,12 @@ pub const TextImpl = struct {
                 if (remaining == 0) {
                     return .{ .left = left, .right = handle };
                 }
-                if (remaining < current.len) {
+                const current_len = current.getClockLen();
+                if (remaining < current_len) {
                     const right = try self.splitItem(handle, remaining);
                     return .{ .left = handle, .right = right };
                 }
-                remaining -= current.len;
+                remaining -= current_len;
             }
             left = handle;
             cursor = current.right;
@@ -367,7 +367,8 @@ pub const TextImpl = struct {
     }
 
     fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.Clock) TextError!item_mod.ItemHandle {
-        if (offset == 0 or offset >= self.items.items[handle].len) return handle;
+        const left_len = self.items.items[handle].getClockLen();
+        if (offset == 0 or offset >= left_len) return handle;
 
         const left_snapshot = self.items.items[handle];
         const slice = switch (left_snapshot.content) {
@@ -377,9 +378,8 @@ pub const TextImpl = struct {
         const full_bytes = self.sliceBytes(slice);
         const byte_offset = try utf.getByteOffsetForCharIndex(full_bytes, offset);
         const right_bytes_len = slice.bytes_len - try intCast(u32, byte_offset);
-        const right_len = left_snapshot.len - offset;
+        const right_len = left_snapshot.getClockLen() - offset;
 
-        self.items.items[handle].len = offset;
         self.items.items[handle].content = .{ .string = .{
             .bytes_start = slice.bytes_start,
             .bytes_len = try intCast(u32, byte_offset),
@@ -391,8 +391,7 @@ pub const TextImpl = struct {
                 .client = left_snapshot.id.client,
                 .clock = left_snapshot.id.clock + offset,
             },
-            .len = right_len,
-            .initial_left_origin_id = self.items.items[handle].lastId(),
+            .initial_left_origin_id = self.items.items[handle].getLastId(),
             .initial_right_origin_id = left_snapshot.initial_right_origin_id,
             .left = handle,
             .right = left_snapshot.right,
@@ -426,7 +425,7 @@ pub const TextImpl = struct {
         const handle = try self.store.findHandleById(self.items.items, target);
         const current = self.items.items[handle];
         const offset = target.clock - current.id.clock + 1;
-        if (offset < current.len) {
+        if (offset < current.getClockLen()) {
             _ = try self.splitItem(handle, offset);
         }
         return handle;

@@ -48,7 +48,8 @@ pub const Cache = struct {
         while (cursor) |handle| {
             const current = text.items.items[handle];
             if (!current.flags.deleted and current.flags.countable) {
-                while (visible_index + current.len > next_marker) {
+                const current_len = current.getClockLen();
+                while (visible_index + current_len > next_marker) {
                     try self.markers.append(text.allocator, .{
                         .index = next_marker,
                         .handle = handle,
@@ -56,7 +57,7 @@ pub const Cache = struct {
                     });
                     next_marker += marker_step;
                 }
-                visible_index += current.len;
+                visible_index += current_len;
             }
             cursor = current.right;
         }

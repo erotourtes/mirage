@@ -33,7 +33,7 @@ pub const StructStore = struct {
         const structs = self.clients.values()[index].items.items;
         if (structs.len == 0) return 0;
         const last = items[structs[structs.len - 1]];
-        return last.id.clock + last.len;
+        return last.id.clock + last.getClockLen();
     }
 
     pub fn addStruct(
@@ -50,7 +50,7 @@ pub const StructStore = struct {
         } else if (result.value_ptr.items.items.len > 0) {
             const structs = result.value_ptr.items.items;
             const last = items[structs[structs.len - 1]];
-            if (last.id.clock + last.len != new_item.id.clock) return error.ClockGap;
+            if (last.id.clock + last.getClockLen() != new_item.id.clock) return error.ClockGap;
         }
 
         try result.value_ptr.items.append(allocator, handle);
@@ -88,7 +88,7 @@ pub const StructStore = struct {
             for (structs[1..], 1..) |handle, index| {
                 const left = items[structs[index - 1]];
                 const right = items[handle];
-                if (left.id.clock + left.len != right.id.clock) return error.ClockGap;
+                if (left.id.clock + left.getClockLen() != right.id.clock) return error.ClockGap;
             }
         }
     }
@@ -116,7 +116,7 @@ fn findIndexByClock(
         if (clock < candidate.id.clock) {
             if (mid == 0) break;
             right = mid - 1;
-        } else if (clock >= candidate.id.clock + candidate.len) {
+        } else if (clock >= candidate.id.clock + candidate.getClockLen()) {
             left = mid + 1;
         } else {
             return mid;

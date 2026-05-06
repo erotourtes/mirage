@@ -97,7 +97,7 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
         const target_clock = target_state.get(client) orelse 0;
         for (client_structs.items.items) |handle| {
             const current = view.items[handle];
-            if (current.id.clock + current.len > target_clock) {
+            if (current.id.clock + current.getClockLen() > target_clock) {
                 changed_clients += 1;
                 break;
             }
@@ -110,7 +110,7 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
         var item_count: usize = 0;
         for (client_structs.items.items) |handle| {
             const current = view.items[handle];
-            if (current.id.clock + current.len > target_clock) item_count += 1;
+            if (current.id.clock + current.getClockLen() > target_clock) item_count += 1;
         }
         if (item_count == 0) continue;
 
@@ -118,13 +118,14 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
         try enc.writeVarU64(item_count);
         for (client_structs.items.items) |handle| {
             const current = view.items[handle];
-            if (current.id.clock + current.len <= target_clock) continue;
+            const current_len = current.getClockLen();
+            if (current.id.clock + current_len <= target_clock) continue;
             const offset = if (target_clock > current.id.clock) target_clock - current.id.clock else 0;
             const write_id: id.Id = .{
                 .client = current.id.client,
                 .clock = current.id.clock + offset,
             };
-            const write_len = current.len - offset;
+            const write_len = current_len - offset;
             try enc.writeVarU64(write_id.clock);
             try enc.writeVarU64(write_len);
             var info: u8 = 0;
@@ -169,7 +170,7 @@ fn writeDeleteSet(view: EncodeView, enc: *encoding.Encoder) Error!void {
             const current = view.items[handle];
             if (current.flags.deleted) {
                 if (active_start == null) active_start = current.id.clock;
-                active_len += current.len;
+                active_len += current.getClockLen();
             } else if (active_start) |start_clock| {
                 try ds.add(view.allocator, client, start_clock, active_len);
                 active_start = null;

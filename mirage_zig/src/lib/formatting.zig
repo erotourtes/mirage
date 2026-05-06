@@ -126,8 +126,9 @@ fn activeValueAt(text: *const text_mod.TextImpl, target_index: u64, key: []const
                     }
                 },
                 .string => if (current.flags.countable) {
-                    if (visible_index + current.len > target_index) break;
-                    visible_index += current.len;
+                    const current_len = current.getClockLen();
+                    if (visible_index + current_len > target_index) break;
+                    visible_index += current_len;
                 },
             }
         }

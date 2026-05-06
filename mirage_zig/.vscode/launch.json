@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "App Launch",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/zig-out/bin/mirage",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "internalConsoleOptions": "openOnSessionStart",
+            "preLaunchTask": "build",
+        },
+        {
+            "name": "Debug Zig test",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/zig-out/bin/debug_test",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "expressions": "simple",
+            "sourceLanguages": [
+                "zig"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            "preLaunchTask": "build Zig test for debug",
+        }
+    ]
+}

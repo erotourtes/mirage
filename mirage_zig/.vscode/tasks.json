@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "zig build",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build Zig test for debug",
+            "type": "shell",
+            "command": "zig",
+            "args": [
+                "test",
+                "${input:zigTestFile}",
+                "-fno-strip",
+                "-fllvm",
+                "--test-no-exec",
+                "--test-filter",
+                "${input:zigTestFilter}",
+                "-femit-bin=zig-out/bin/debug_test"
+            ],
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "zigTestFile",
+            "type": "promptString",
+            "description": "Zig test file to compile",
+            "default": "${file}"
+        },
+        {
+            "id": "zigTestFilter",
+            "type": "promptString",
+            "description": "Zig --test-filter value",
+            "default": "${selectedText}"
+        }
+    ]
+}

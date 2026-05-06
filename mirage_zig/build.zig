@@ -43,6 +43,7 @@ fn addExeModule(
 
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
+        .use_llvm = true,
     });
     const run_exe_tests = b.addRunArtifact(exe_tests);
     test_step.dependOn(&run_exe_tests.step);
@@ -103,6 +104,7 @@ fn addTests(
 ) *std.Build.Step {
     const mod_tests = b.addTest(.{
         .root_module = mod,
+        .use_llvm = true,
     });
     const run_mod_tests = b.addRunArtifact(mod_tests);
     const test_step = b.step("test", "Run tests");
@@ -137,6 +139,7 @@ fn addDiscoveredTests(
 
         const test_path = std.fs.path.join(b.allocator, &.{ "tests", entry.name }) catch @panic("failed to allocate test path");
         const test_artifact = b.addTest(.{
+            .use_llvm = true,
             .root_module = b.createModule(.{
                 .root_source_file = b.path(test_path),
                 .target = target,

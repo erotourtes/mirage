@@ -42,6 +42,20 @@
   body,
 )
 
+#let item-box(title, body, fill: rgb("#f7f3ef")) = box(
+  width: 52pt,
+  inset: (x: 4pt, y: 3pt),
+  radius: 2pt,
+  stroke: 0.8pt,
+  fill: fill,
+)[
+  #text(size: 7.5pt, weight: "bold")[#title]
+  #linebreak()
+  #text(size: 6.5pt)[#body]
+]
+
+#let link-arrow = text(size: 9pt)[$arrow.r$]
+
 
 #let diagrams = (
   ot-basic: ot-diagram(
@@ -225,5 +239,61 @@
       spacing: 0.6em,
       range-box($(0, 14)$, fill: rgb("#d9ead3")),
     ),
+  ),
+  local-insert-state: stack(
+    dir: ttb,
+    spacing: 0.8em,
+    align(center)[after `insert(5, ",")`],
+    table(
+      columns: (0.85fr, 1.1fr, 1.1fr, 1.2fr),
+      align: horizon,
+      table.header([handle], [id], [content slice], [links]),
+      [`h0`], [`{1,0}`], [`bytes[0..5] = "Hello"`], [`left=null, right=h2`],
+      [`h1`], [`{1,5}`], [`bytes[5..11] = " world"`], [`left=h2, right=null`],
+      [`h2`], [`{1,11}`], [`bytes[11..12] = ","`], [`left=h0, right=h1`],
+    ),
+    text(size: 8pt)[items array order: `h0`, `h1`, `h2`; document order:],
+    stack(
+      dir: ltr,
+      spacing: 0.35em,
+      item-box([h0], [`Hello`\ `bytes[0..5]`]),
+      link-arrow,
+      item-box([h2], [`,`\ `bytes[11..12]`], fill: rgb("#d9ead3")),
+      link-arrow,
+      item-box([h1], [` world`\ `bytes[5..11]`]),
+    ),
+    text(size: 8pt)[shared byte buffer: `"Hello world,"`],
+  ),
+  attribute-markers: stack(
+    dir: ttb,
+    spacing: 0.8em,
+    align(center)[after `format(7, 5, bold=true)` on `"Hello, world"`],
+    table(
+      columns: (0.7fr, 1fr, 1.65fr, 1.05fr),
+      align: horizon,
+      table.header([handle], [kind], [content slice], [visible]),
+      [`h0`], [string], [`bytes[0..5] = "Hello"`], [yes],
+      [`h2`], [string], [`bytes[11..12] = ","`], [yes],
+      [`h1`], [string], [`bytes[5..6] = " "`], [yes],
+      [`h4`], [format], [`key=bytes[12..16], value=bytes[16..20]`], [no],
+      [`h3`], [string], [`bytes[6..11] = "world"`], [yes],
+      [`h5`], [format], [`key=bytes[20..24], value=null`], [no],
+    ),
+    stack(
+      dir: ltr,
+      spacing: 0.25em,
+      item-box([h0], [`Hello`]),
+      link-arrow,
+      item-box([h2], [`,`], fill: rgb("#d9ead3")),
+      link-arrow,
+      item-box([h1], [`space`]),
+      link-arrow,
+      item-box([h4], [`bold=true`], fill: rgb("#d9eaf7")),
+      link-arrow,
+      item-box([h3], [`world`]),
+      link-arrow,
+      item-box([h5], [`bold=null`], fill: rgb("#d9eaf7")),
+    ),
+    text(size: 8pt)[format markers are stored as items, but `countable=false`; only string items contribute to visible length],
   ),
 )

@@ -340,7 +340,7 @@ Yjs is implemented in JavaScript and is designed to work in web browsers. Althou
 
 = Implementation
 
-== Id
+== Id <h2:id>
 
 In distributed systems, physical time is not a reliable source of ordering due to clock skew and network delays. The solution is to use logical clocks @logical-clocks. This implementation uses Lamport clocks which allows to define total order ($prec$) of operations based on their logical timestamps and replica identifiers @lamport-time-clocks-ordering[pp. 560-562]. Formally
 this can be defined as follows:
@@ -388,5 +388,74 @@ This means a deletion of a long contiguous text fragment can be represented by o
 
 The encoder uses wasm binary encoding specification @webassembly-binary-values, where bytes encode themselves, and integers are encoded using variable-length encoding LEB128. For example, numbers $[0, 127]$ are represented as a single byte, $[128, 16383]$ are represented as two bytes, and so on.
 
+
+== Text Representation
+
+The core building block of this CRDT is `Item`. Each `Item` has an id @h2:id; a reference to the previous and next items that define the document order; A content which is either a `TextSlice` or `AttributeSlice` and some other metadata.
+
+The structure that organizes all the items is `TextImpl`. It stores all the items in an 
+array list `items`. The array list is just a container for all the items and the order of items does not define the document order.
+
+The similar idea is used for string values such as text and attribute values. They are stored in the `bytes` buffer which `Item.content` references by offset and length.
+
+== Local insertion
+
+Local insertion starts by translating a visible text index into a linked-list
+gap. The `findPosition` function walks only visible string items; deleted items
+and formatting markers are skipped for visible indexing. If the insertion point
+falls inside a string item, the item is split first, so the new item can be
+linked into a clean gap.
+
+Consider three local operations on an empty document:
+- `insert(0, "Hello")`
+- `insert(5, " world")`
+- `insert(5, ",")`
+
+#figure(
+  diagrams.local-insert-state,
+  caption: [Local insertion state after inserting a comma],
+) <fig:local-insert>
+
+In @fig:local-insert, the comma is appended as handle `h2`, so it appears after
+`h0` and `h1` in the `items` array and receives the next local id `{1,11}`.
+However, document order is not defined by the array order. The call to
+`linkInserted` rewires `left` and `right`: `h0.right = h2`, `h2.right = h1`, and
+`h1.left = h2`. Therefore the visible document is read as `h0 -> h2 -> h1`,
+which produces `"Hello, world"`. The byte buffer also remains append-only:
+`"Hello"`, `" world"`, and `","` are stored in insertion order, while items
+refer to their byte slices by offset and length.
+
+== Attributes
+
+Attributes are represented as non-countable format items inside the same linked
+list. A format item does not contain visible text. Instead, it changes the
+active attribute state for the following string items until another format item
+with the same key changes or clears that value.
+
+For example, formatting `world` in `"Hello, world"` with `bold=true` first
+requires a clean boundary before `world`. Since the existing item contains
+`" world"`, `findPosition` splits it into `" "` and `"world"`. Then `format`
+inserts one marker before `world` with `bold=true`, and one marker after it with
+`bold=null` to restore the previous state.
+
+#figure(
+  diagrams.attribute-markers,
+  caption: [Attribute markers in the item linked list],
+) <fig:attribute-markers>
+
+This representation keeps text and formatting in one CRDT sequence. Rendering or
+conversion to delta walks the linked list from `start`, maintains the currently
+active attributes, and emits only non-deleted string items. The formatting
+markers affect the output attributes, but do not increase the visible document
+length.
+
+
+== Limitations
+
+- Large files
+  - Errors
+  - State corruption
+- Garbage collection
+  - marker handling
 
 #bibliography("./bib.yml")

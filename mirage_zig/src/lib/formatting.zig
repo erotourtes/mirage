@@ -17,28 +17,32 @@ pub const OwnedAttribute = struct {
     }
 };
 
+/// Walks through the whole linked list and
+/// marks redundant format items as deleted.
 pub fn cleanup(text: *text_mod.TextImpl) !void {
     var active_attrs: std.ArrayList(attrs.Attribute) = .empty;
     defer active_attrs.deinit(text.allocator);
 
     var cursor = text.start;
     while (cursor) |handle| {
-        if (!text.items.items[handle].flags.deleted) {
-            switch (text.items.items[handle].content) {
-                .string => {},
-                .format => |format_slice| {
-                    if (formatIsRedundant(text, active_attrs.items, format_slice) or
-                        !hasVisibleContentBeforeNextSameKey(text, handle, format_slice))
-                    {
-                        text.items.items[handle].flags.deleted = true;
-                        text.invalidateSearchMarkers();
-                    } else {
-                        try updateActiveAttrs(text, text.allocator, &active_attrs, format_slice);
-                    }
-                },
-            }
+        defer cursor = text.items.items[handle].right;
+
+        const is_deleted = text.items.items[handle].flags.deleted;
+        if (is_deleted) continue;
+
+        switch (text.items.items[handle].content) {
+            .string => {},
+            .format => |format_slice| {
+                const should_mark_as_deleted = checkIfFormatIsRedundant(text, active_attrs.items, format_slice) or
+                    !hasVisibleContentBeforeNextSameKey(text, handle, format_slice);
+                if (should_mark_as_deleted) {
+                    text.items.items[handle].flags.deleted = true;
+                    text.invalidateSearchMarkers();
+                } else {
+                    try updateActiveAttrs(text, text.allocator, &active_attrs, format_slice);
+                }
+            },
         }
-        cursor = text.items.items[handle].right;
     }
 }
 
@@ -140,24 +144,59 @@ fn activeValueAt(text: *const text_mod.TextImpl, target_index: u64, key: []const
     return active_value;
 }
 
-pub fn formatIsRedundant(
+/// If the format_slice is applied right now,
+/// would it change the current active formatting state?
+/// If no, then redundant
+fn checkIfFormatIsRedundant(
     text: *const text_mod.TextImpl,
+    /// Must never contain null values
     active_attrs: []const attrs.Attribute,
     format_slice: item_mod.AttributeSlice,
 ) bool {
     const key = text.attributeKeyBytes(format_slice);
     for (active_attrs) |attribute| {
-        if (std.mem.eql(u8, attribute.key, key)) {
-            if (format_slice.value_is_null) return false;
-            return switch (attribute.value) {
-                .null => false,
-                .string => |value| std.mem.eql(u8, value, text.attributeValueBytes(format_slice)),
-            };
-        }
+        const is_found_key = std.mem.eql(u8, attribute.key, key);
+        if (!is_found_key) continue;
+
+        const is_closing_existing_attr = format_slice.value_is_null;
+        if (is_closing_existing_attr) return false;
+
+        return switch (attribute.value) {
+            .null => false,
+            .string => |value| {
+                const format_value = text.attributeValueBytes(format_slice);
+                const is_value_equal = std.mem.eql(u8, value, format_value);
+                return is_value_equal;
+            },
+        };
     }
     return format_slice.value_is_null;
 }
 
+test "checkIfFormatIsRedundant returns true for redundant format" {
+    const allocator = std.testing.allocator;
+    var text = text_mod.TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    const format_slice = try text.appendAttribute(.{
+        .key = "bold",
+        .value = .{ .string = "true" },
+    });
+
+    var active_attrs: std.ArrayList(attrs.Attribute) = .empty;
+    defer active_attrs.deinit(allocator);
+    try active_attrs.append(allocator, .{
+        .key = "bold",
+        .value = .{ .string = "true" },
+    });
+
+    const is_redundant = checkIfFormatIsRedundant(&text, active_attrs.items, format_slice);
+    try std.testing.expect(is_redundant);
+}
+
+/// E.g check for 0 -> returns false
+///           0            1  2
+/// [bold:true] [bold:false] [A]
 fn hasVisibleContentBeforeNextSameKey(
     text: *const text_mod.TextImpl,
     handle: item_mod.ItemHandle,
@@ -167,15 +206,18 @@ fn hasVisibleContentBeforeNextSameKey(
     var cursor = text.items.items[handle].right;
     while (cursor) |current_handle| {
         const current = text.items.items[current_handle];
-        if (!current.flags.deleted) {
-            switch (current.content) {
-                .string => if (current.flags.countable) return true,
-                .format => |next_format| {
-                    if (std.mem.eql(u8, text.attributeKeyBytes(next_format), key)) return false;
-                },
-            }
+        defer cursor = current.right;
+
+        if (current.flags.deleted) continue;
+
+        switch (current.content) {
+            .string => if (current.flags.countable) return true,
+            .format => |next_format| {
+                const next_format_key = text.attributeKeyBytes(next_format);
+                const found_closing_format = std.mem.eql(u8, next_format_key, key);
+                if (found_closing_format) return false;
+            },
         }
-        cursor = current.right;
     }
     return false;
 }

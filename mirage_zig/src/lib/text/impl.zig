@@ -52,6 +52,16 @@ pub const TextImpl = struct {
     /// `TextItem` doesn't own separate strings,
     /// but just slices of this buffer
     bytes: std.ArrayList(u8) = .empty,
+
+    /// TODO:
+    /// Client clock order, contrary to the `Item.left`/`right` which defines
+    /// the document order.
+    ///
+    /// It answers the questions:
+    /// - what clock should the next local item use
+    /// - do we already have item {client_id, clock}
+    /// - which item contains this clock
+    /// - is there a clock gap in the client's history
     store: store_mod.StructStore = .{},
 
     /// Updates that arrived before their dependencies.
@@ -293,29 +303,50 @@ pub const TextImpl = struct {
         };
     }
 
-    fn findPosition(self: *TextImpl, index: id.Clock) TextError!Position {
+    /// Converts a visible character index into a position.
+    /// Splits the item if the index is in the middle of it.
+    ///
+    /// Position returns a `gap`
+    ///  0   1   2
+    /// [A] [B] [C] -index: 1> { .left = 0, .right = 1 }
+    ///
+    /// Note if the character has formatting
+    ///              0   1  2
+    /// [{bold: true}] [A] [{bold: true}] -index: 1> { .left = 2, .right = null }
+    fn findPosition(self: *TextImpl, index: id.TextIndex) TextError!Position {
         if (index > self.length) return error.IndexOutOfBounds;
 
         try self.search_cache.ensure(self);
         const nearest = self.search_cache.nearest(self, index);
-        var remaining = nearest.item_offset + (index - nearest.index);
+        var remaining: id.TextLen = nearest.item_offset + (index - nearest.index);
         var left: ?item_mod.ItemHandle = if (nearest.handle) |handle| self.items.items[handle].left else null;
         var cursor = nearest.handle;
         while (cursor) |handle| {
             const current = self.items.items[handle];
-            if (!current.flags.deleted and current.flags.countable) {
-                if (remaining == 0) {
-                    return .{ .left = left, .right = handle };
-                }
-                const current_len = current.getClockLen();
-                if (remaining < current_len) {
-                    const right = try self.splitItem(handle, remaining);
-                    return .{ .left = handle, .right = right };
-                }
-                remaining -= current_len;
+            defer {
+                // Defer is ok, since return value is evaluated before; and they are scalar fields
+                left = handle;
+                cursor = current.right;
             }
-            left = handle;
-            cursor = current.right;
+
+            const is_visible = !current.flags.deleted and current.flags.countable;
+            if (!is_visible) {
+                continue;
+            }
+
+            const is_found = remaining == 0;
+            if (is_found) {
+                return .{ .left = left, .right = handle };
+            }
+
+            const current_len: id.TextLen = current.getClockLen();
+            const is_within_current = remaining < current_len;
+            if (is_within_current) {
+                const right = try self.splitItem(handle, remaining);
+                return .{ .left = handle, .right = right };
+            }
+
+            remaining -= current_len;
         }
 
         if (remaining != 0) return error.IndexOutOfBounds;
@@ -597,3 +628,73 @@ fn validateUpdateBytes(update: []const u8) TextError!void {
     }
     try dec.expectEnd();
 }
+
+//==============================================================================
+// findPosition
+//==============================================================================
+test "findPosition returns gap before item at exact boundary" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "A");
+    try text.insert(1, "B");
+    try text.insert(2, "C");
+
+    const position = try text.findPosition(1);
+
+    try std.testing.expectEqual(0, position.left);
+    try std.testing.expectEqual(1, position.right);
+}
+
+test "findPosition splits item when index is inside visible text item" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "ABC");
+
+    const position = try text.findPosition(1);
+
+    try std.testing.expectEqual(0, position.left);
+    try std.testing.expectEqual(1, position.right);
+
+    try std.testing.expectEqual(1, text.items.items[0].getClockLen());
+    try std.testing.expectEqual(2, text.items.items[1].getClockLen());
+}
+
+test "findPosition returns end gap at document length" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "A");
+    try text.insert(1, "B");
+
+    const position = try text.findPosition(text.len());
+
+    try std.testing.expectEqual(1, position.left);
+    try std.testing.expectEqual(null, position.right);
+}
+
+test "findPosition tracks invisible items in linked-list gap" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    const bold = attrs.Attribute{
+        .key = "bold",
+        .value = .{ .string = "true" },
+    };
+
+    try text.insertWithAttrs(0, "A", &.{bold});
+
+    const position = try text.findPosition(1);
+
+    try std.testing.expectEqual(2, position.left);
+    try std.testing.expectEqual(null, position.right);
+}
+
+//==============================================================================
+// splitItem
+//==============================================================================

@@ -65,9 +65,17 @@ pub const Item = struct {
             .clock = self.id.clock + clock_len - 1,
         };
     }
+
+    pub fn debugFlags(self: Item) [2]u8 {
+        var flags = [_]u8{ '-', '-' };
+        if (self.flags.countable) flags[0] = 'C';
+        if (self.flags.deleted) flags[1] = 'D';
+        return flags;
+    }
 };
 
 const expectEqual = @import("std").testing.expectEqual;
+const expectEqualStrings = @import("std").testing.expectEqualStrings;
 
 test "Item.get_last_id returns the correct last id for string content" {
     var item: Item = undefined;
@@ -82,4 +90,19 @@ test "Item.get_last_id returns the correct last id for string content" {
 
     try expectEqual(1, last_id.client);
     try expectEqual(4, last_id.clock);
+}
+
+test "Item.debugFlags returns correct flags" {
+    var item: Item = undefined;
+    item.flags = .{ .countable = true, .deleted = false };
+    try expectEqualStrings("C-", item.debugFlags()[0..]);
+
+    item.flags = .{ .countable = false, .deleted = true };
+    try expectEqualStrings("-D", item.debugFlags()[0..]);
+
+    item.flags = .{ .countable = true, .deleted = true };
+    try expectEqualStrings("CD", item.debugFlags()[0..]);
+
+    item.flags = .{ .countable = false, .deleted = false };
+    try expectEqualStrings("--", item.debugFlags()[0..]);
 }

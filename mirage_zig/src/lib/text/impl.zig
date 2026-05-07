@@ -105,6 +105,12 @@ pub const TextImpl = struct {
         _ = try self.insertStringAt(pos, bytes);
     }
 
+    /// Inserts string with formatting
+    ///
+    /// E.g inserting `C` with `bold: true` at index 1
+    ///   0  1
+    /// [A] [B]
+    /// [A] [bold:true] [C] [bold:null] [B]
     pub fn insertWithAttrs(
         self: *TextImpl,
         index: id.TextIndex,
@@ -370,7 +376,8 @@ pub const TextImpl = struct {
     /// Offset is the length of the left part after the split.
     /// [a, b, c] - offset: 1> [a] [b, c]
     ///
-    /// If the offset is out of bounds returns the error
+    /// If the offset is out of bounds returns the error.
+    /// Returns the handle of the right part after the split.
     fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.TextLen) TextError!item_mod.ItemHandle {
         const left_len = self.items.items[handle].getClockLen();
         const is_offset_out_of_bounds = offset == 0 or offset >= left_len;
@@ -543,12 +550,14 @@ pub const TextImpl = struct {
         self.invalidateSearchMarkers();
     }
 
+    /// Returns the `new_item` handle
     pub fn appendItem(self: *TextImpl, new_item: item_mod.Item) TextError!item_mod.ItemHandle {
         const handle = try intCast(item_mod.ItemHandle, self.items.items.len);
         try self.items.append(self.allocator, new_item);
         return handle;
     }
 
+    /// Returns the start index of the appended bytes in the shared byte buffer.
     pub fn appendBytes(self: *TextImpl, source: []const u8) TextError!u32 {
         const start = try intCast(u32, self.bytes.items.len);
         try self.bytes.appendSlice(self.allocator, source);
@@ -557,15 +566,16 @@ pub const TextImpl = struct {
 
     pub fn appendAttribute(self: *TextImpl, attribute: attrs.Attribute) TextError!item_mod.AttributeSlice {
         const key_start = try self.appendBytes(attribute.key);
+        const key_len = try intCast(u32, attribute.key.len);
         return switch (attribute.value) {
             .null => .{
                 .key_start = key_start,
-                .key_len = try intCast(u32, attribute.key.len),
+                .key_len = key_len,
                 .value_is_null = true,
             },
             .string => |value| .{
                 .key_start = key_start,
-                .key_len = try intCast(u32, attribute.key.len),
+                .key_len = key_len,
                 .value_start = try self.appendBytes(value),
                 .value_len = try intCast(u32, value.len),
                 .value_is_null = false,

@@ -19,6 +19,8 @@ pub const TextSlice = struct {
     logical_len: id.Clock,
 };
 
+/// Holds both key and value positions of an attribute.
+/// E.g for `bold: true` it holds the positions of `bold` and `true` in the text's byte storage.
 pub const AttributeSlice = struct {
     key_start: u32,
     key_len: u32,

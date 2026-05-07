@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) !void {
     const test_step = addTests(b, target, optimize, mod);
     addExeModule(b, target, optimize, mod, test_step);
     addWasmModule(b, optimize);
+    addDebugTestStep(b, target, mod);
 }
 
 fn addExeModule(
@@ -122,6 +123,86 @@ fn addTests(
     };
 
     return test_step;
+}
+
+fn addDebugTestStep(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    mod: *std.Build.Module,
+) void {
+    const debug_step = b.step("debug-test", "Build one Zig test artifact for VS Code debugging");
+    const selected_file = b.option([]const u8, "debug-test-file", "Workspace-relative Zig file to test") orelse {
+        debug_step.dependOn(&b.addFail("pass -Ddebug-test-file=<workspace-relative-zig-file>").step);
+        return;
+    };
+    const selected_filter = b.option([]const u8, "debug-test-filter", "Optional Zig --test-filter value");
+
+    const TestSource = struct {
+        root_source_file: []const u8,
+        import_path: []const u8 = "",
+        write_debug_root: bool = false,
+        imports: []const std.Build.Module.Import,
+    };
+    const lib_prefix = "src/lib/";
+    const tests_prefix = "tests/";
+    const test_source: TestSource = if (std.mem.startsWith(u8, selected_file, lib_prefix)) source: {
+        const lib_relative_path = selected_file[lib_prefix.len..];
+        if (std.mem.indexOfScalar(u8, lib_relative_path, '/') != null) {
+            break :source TestSource{
+                .root_source_file = "src/lib/debug_test_root.zig",
+                .import_path = lib_relative_path,
+                .write_debug_root = true,
+                .imports = &.{},
+            };
+        }
+        break :source TestSource{
+            .root_source_file = selected_file,
+            .imports = &.{},
+        };
+    } else if (std.mem.startsWith(u8, selected_file, tests_prefix))
+        TestSource{
+            .root_source_file = selected_file,
+            .imports = &.{.{ .name = "mirage_lib", .module = mod }},
+        }
+    else {
+        debug_step.dependOn(&b.addFail("debug-test-file must be under src/lib/ or tests/").step);
+        return;
+    };
+
+    const filters = if (selected_filter) |filter|
+        if (filter.len == 0) &.{} else b.dupeStrings(&.{filter})
+    else
+        &.{};
+
+    const write_debug_root = if (test_source.write_debug_root) root: {
+        const update_source = b.addUpdateSourceFiles();
+        const root_contents = std.fmt.allocPrint(
+            b.allocator,
+            "test {{\n    _ = @import(\"{s}\");\n}}\n",
+            .{test_source.import_path},
+        ) catch @panic("failed to allocate debug test root");
+        update_source.addBytesToSource(root_contents, test_source.root_source_file);
+        break :root update_source;
+    } else null;
+
+    const test_artifact = b.addTest(.{
+        .name = "debug_test",
+        .use_llvm = true,
+        .filters = filters,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(test_source.root_source_file),
+            .target = target,
+            .optimize = .Debug,
+            .strip = false,
+            .omit_frame_pointer = false,
+            .imports = test_source.imports,
+        }),
+    });
+    if (write_debug_root) |write_step| {
+        test_artifact.step.dependOn(&write_step.step);
+    }
+    const install_test = b.addInstallArtifact(test_artifact, .{ .dest_sub_path = "debug_test" });
+    debug_step.dependOn(&install_test.step);
 }
 
 fn addDiscoveredImportTests(

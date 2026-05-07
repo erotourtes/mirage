@@ -16,27 +16,15 @@
             "type": "shell",
             "command": "zig",
             "args": [
-                "test",
-                "${input:zigTestFile}",
-                "-ODebug",
-                "-fno-strip",
-                "-fno-omit-frame-pointer",
-                "-fllvm",
-                "--test-no-exec",
-                "--test-filter",
-                "${input:zigTestFilter}",
-                "-femit-bin=zig-out/bin/debug_test"
+                "build",
+                "debug-test",
+                "-Ddebug-test-file=${relativeFile}",
+                "-Ddebug-test-filter=${input:zigTestFilter}"
             ],
             "problemMatcher": []
         }
     ],
     "inputs": [
-        {
-            "id": "zigTestFile",
-            "type": "promptString",
-            "description": "Zig test file to compile",
-            "default": "${file}"
-        },
         {
             "id": "zigTestFilter",
             "type": "promptString",

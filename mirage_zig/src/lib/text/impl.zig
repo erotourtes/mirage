@@ -163,10 +163,14 @@ pub const TextImpl = struct {
         try self.cleanupFormatting();
     }
 
+    /// Inserts a string into a `gap` defined by the position.
+    /// .{ .left = 0, .right = 1 } means that the string
+    /// will be inserted between items with handles 0 and 1.
     fn insertStringAt(self: *TextImpl, pos: Position, bytes: []const u8) TextError!item_mod.ItemHandle {
         const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return error.IndexOutOfBounds;
 
+        const bytes_len = try intCast(u32, bytes.len);
         const bytes_start = try self.appendBytes(bytes);
         const handle = try self.appendItem(.{
             .id = .{
@@ -179,7 +183,7 @@ pub const TextImpl = struct {
             .right = pos.right,
             .content = .{ .string = .{
                 .bytes_start = bytes_start,
-                .bytes_len = try intCast(u32, bytes.len),
+                .bytes_len = bytes_len,
                 .logical_len = logical_len,
             } },
             .flags = .{

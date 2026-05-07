@@ -42,7 +42,10 @@ pub const TextImpl = struct {
     /// The visible text length (non-deleted, countable items)
     length: id.TextLen = 0,
 
-    /// All items in the document
+    /// All items in the document.
+    /// The elements are not necessarily in the document order.
+    /// The document order is defined by the `left`/`right` fields of the items.
+    ///
     /// `ItemHandle` is just the index in this array
     items: std.ArrayList(item_mod.Item) = .empty,
 
@@ -357,9 +360,17 @@ pub const TextImpl = struct {
         self.search_cache.invalidate();
     }
 
+    /// Splits the item at the given offset (in visible characters).
+    /// FormatItems can't be split, since they don't have a visible length.
+    ///
+    /// Offset is the length of the left part after the split.
+    /// [a, b, c] - offset: 1> [a] [b, c]
+    ///
+    /// If the offset is out of bounds returns the error
     fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.TextLen) TextError!item_mod.ItemHandle {
         const left_len = self.items.items[handle].getClockLen();
-        if (offset == 0 or offset >= left_len) return handle;
+        const is_offset_out_of_bounds = offset == 0 or offset >= left_len;
+        if (is_offset_out_of_bounds) return error.IndexOutOfBounds;
 
         const left_snapshot = self.items.items[handle];
         const slice = switch (left_snapshot.content) {
@@ -367,13 +378,13 @@ pub const TextImpl = struct {
             .format => return error.UnsupportedContent,
         };
         const full_bytes = self.sliceBytes(slice);
-        const byte_offset = try utf.getByteOffsetForCharIndex(full_bytes, offset);
-        const right_bytes_len = slice.bytes_len - try intCast(u32, byte_offset);
+        const byte_offset = try intCast(u32, try utf.getByteOffsetForCharIndex(full_bytes, offset));
+        const right_bytes_len = slice.bytes_len - byte_offset;
         const right_len = left_snapshot.getClockLen() - offset;
 
         self.items.items[handle].content = .{ .string = .{
             .bytes_start = slice.bytes_start,
-            .bytes_len = try intCast(u32, byte_offset),
+            .bytes_len = byte_offset,
             .logical_len = offset,
         } };
 
@@ -387,7 +398,7 @@ pub const TextImpl = struct {
             .left = handle,
             .right = left_snapshot.right,
             .content = .{ .string = .{
-                .bytes_start = slice.bytes_start + try intCast(u32, byte_offset),
+                .bytes_start = slice.bytes_start + byte_offset,
                 .bytes_len = right_bytes_len,
                 .logical_len = right_len,
             } },
@@ -698,3 +709,30 @@ test "findPosition tracks invisible items in linked-list gap" {
 //==============================================================================
 // splitItem
 //==============================================================================
+
+test "splitItem splits string item at given offset" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "ABC");
+
+    const right_handle = try text.splitItem(0, 1);
+
+    try std.testing.expectEqual(1, text.items.items[0].getClockLen());
+    try std.testing.expectEqual(2, text.items.items[right_handle].getClockLen());
+    try std.testing.expectEqualStrings("A", text.sliceBytes(text.items.items[0].content.string));
+    try std.testing.expectEqualStrings("BC", text.sliceBytes(text.items.items[right_handle].content.string));
+    try std.testing.expectEqual(0, text.items.items[1].left);
+}
+
+test "splitItem splits string item at the end" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "ABC");
+
+    const right_handle = text.splitItem(0, 3);
+    try std.testing.expectError(error.IndexOutOfBounds, right_handle);
+}

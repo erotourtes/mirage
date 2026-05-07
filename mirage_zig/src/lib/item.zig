@@ -10,8 +10,12 @@ pub const ItemFlags = packed struct {
 };
 
 pub const TextSlice = struct {
+    /// The start index of the text slice in the text's byte storage
     bytes_start: u32,
+    /// How many bytes this text slice occupies in the text's byte storage
     bytes_len: u32,
+    /// How many characters this text slice occupies.
+    /// `世界` has `bytes_len` of 6 and `logical_len` of 2
     logical_len: id.Clock,
 };
 

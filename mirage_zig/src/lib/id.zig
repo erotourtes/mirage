@@ -1,5 +1,13 @@
 pub const ClientId = u64;
+
+/// A CRDT clock within a single client's operation history.
 pub const Clock = u64;
+
+/// A visible Unicode scalar index in the text document.
+pub const TextIndex = u64;
+
+/// A visible Unicode scalar length in the text document.
+pub const TextLen = u64;
 
 pub const Id = struct {
     client: ClientId,

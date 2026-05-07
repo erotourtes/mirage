@@ -3,18 +3,18 @@ const id = @import("id.zig");
 const item_mod = @import("item.zig");
 const text_mod = @import("text/impl.zig");
 
-const marker_step: id.Clock = 32;
+const marker_step: id.TextLen = 32;
 
 const Marker = struct {
-    index: id.Clock,
+    index: id.TextIndex,
     handle: item_mod.ItemHandle,
-    item_offset: id.Clock,
+    item_offset: id.TextLen,
 };
 
 pub const Nearest = struct {
-    index: id.Clock,
+    index: id.TextIndex,
     handle: ?item_mod.ItemHandle,
-    item_offset: id.Clock,
+    item_offset: id.TextLen,
 };
 
 pub const Cache = struct {
@@ -43,8 +43,8 @@ pub const Cache = struct {
 
         self.markers.clearRetainingCapacity();
         var cursor = text.start;
-        var visible_index: id.Clock = 0;
-        var next_marker: id.Clock = 0;
+        var visible_index: id.TextIndex = 0;
+        var next_marker: id.TextIndex = 0;
         while (cursor) |handle| {
             const current = text.items.items[handle];
             if (!current.flags.deleted and current.flags.countable) {
@@ -64,10 +64,10 @@ pub const Cache = struct {
         self.valid = true;
     }
 
-    pub fn nearest(self: *const Cache, text: *const text_mod.TextImpl, index: id.Clock) Nearest {
-        var best_index: id.Clock = 0;
+    pub fn nearest(self: *const Cache, text: *const text_mod.TextImpl, index: id.TextIndex) Nearest {
+        var best_index: id.TextIndex = 0;
         var best_handle: ?item_mod.ItemHandle = text.start;
-        var best_item_offset: id.Clock = 0;
+        var best_item_offset: id.TextLen = 0;
         for (self.markers.items) |marker| {
             if (marker.index > index) break;
             best_index = marker.index;

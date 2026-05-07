@@ -8,7 +8,7 @@ pub const View = struct {
     items: []const item_mod.Item,
     bytes: []const u8,
     start: ?item_mod.ItemHandle,
-    length: id.Clock,
+    length: id.TextLen,
     pending_update_count: usize,
     search_markers_valid: bool,
     search_marker_count: usize,
@@ -19,7 +19,7 @@ pub fn checkIntegrity(view: View) !void {
 
     var previous: ?item_mod.ItemHandle = null;
     var cursor = view.start;
-    var visible_len: id.Clock = 0;
+    var visible_len: id.TextLen = 0;
     while (cursor) |handle| {
         if (handle >= view.items.len) return error.InvalidHandle;
         const current = view.items[handle];

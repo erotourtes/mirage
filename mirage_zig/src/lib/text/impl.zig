@@ -34,11 +34,28 @@ const Position = struct {
 pub const TextImpl = struct {
     allocator: std.mem.Allocator,
     client_id: id.ClientId,
+
+    /// The first item in the linked list
+    /// If it's `null`, the list is empty
     start: ?item_mod.ItemHandle = null,
-    length: id.Clock = 0,
+
+    /// The visible text length (non-deleted, countable items)
+    length: id.TextLen = 0,
+
+    /// All items in the document
+    /// `ItemHandle` is just the index in this array
     items: std.ArrayList(item_mod.Item) = .empty,
+
+    /// A shared byte buffer holding the actual string data
+    /// (both text and formatting attributes)
+    ///
+    /// `TextItem` doesn't own separate strings,
+    /// but just slices of this buffer
     bytes: std.ArrayList(u8) = .empty,
     store: store_mod.StructStore = .{},
+
+    /// Updates that arrived before their dependencies.
+    /// They can't be applied yet
     pending_updates: std.ArrayList([]u8) = .empty,
     search_cache: search.Cache = .{},
 
@@ -61,11 +78,12 @@ pub const TextImpl = struct {
         self.* = undefined;
     }
 
-    pub fn len(self: *const TextImpl) id.Clock {
+    pub fn len(self: *const TextImpl) id.TextLen {
         return self.length;
     }
 
-    pub fn insert(self: *TextImpl, index: id.Clock, bytes: []const u8) TextError!void {
+    /// Inserts into the visible character index
+    pub fn insert(self: *TextImpl, index: id.TextIndex, bytes: []const u8) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
         const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return;
@@ -76,7 +94,7 @@ pub const TextImpl = struct {
 
     pub fn insertWithAttrs(
         self: *TextImpl,
-        index: id.Clock,
+        index: id.TextIndex,
         bytes: []const u8,
         attributes: []const attrs.Attribute,
     ) TextError!void {
@@ -103,8 +121,8 @@ pub const TextImpl = struct {
 
     pub fn format(
         self: *TextImpl,
-        index: id.Clock,
-        format_len: id.Clock,
+        index: id.TextIndex,
+        format_len: id.TextLen,
         attributes: []const attrs.Attribute,
     ) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
@@ -186,7 +204,7 @@ pub const TextImpl = struct {
         return handle;
     }
 
-    pub fn delete(self: *TextImpl, index: id.Clock, delete_len: id.Clock) TextError!void {
+    pub fn delete(self: *TextImpl, index: id.TextIndex, delete_len: id.TextLen) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
         if (delete_len > self.length - index) return error.IndexOutOfBounds;
         if (delete_len == 0) return;
@@ -308,7 +326,7 @@ pub const TextImpl = struct {
         self.search_cache.invalidate();
     }
 
-    fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.Clock) TextError!item_mod.ItemHandle {
+    fn splitItem(self: *TextImpl, handle: item_mod.ItemHandle, offset: id.TextLen) TextError!item_mod.ItemHandle {
         const left_len = self.items.items[handle].getClockLen();
         if (offset == 0 or offset >= left_len) return handle;
 

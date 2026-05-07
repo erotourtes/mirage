@@ -34,7 +34,7 @@ pub const Text = struct {
     }
 
     /// Returns the visible document length in Unicode scalar values.
-    pub fn len(self: *const Text) id.Clock {
+    pub fn len(self: *const Text) id.TextLen {
         return self.impl.len();
     }
 
@@ -42,7 +42,7 @@ pub const Text = struct {
     ///
     /// `index` is a Unicode scalar index. Empty text is a no-op. `bytes` are
     /// copied into the document before this function returns.
-    pub fn insert(self: *Text, index: id.Clock, bytes: []const u8) TextError!void {
+    pub fn insert(self: *Text, index: id.TextIndex, bytes: []const u8) TextError!void {
         try self.impl.insert(index, bytes);
     }
 
@@ -52,7 +52,7 @@ pub const Text = struct {
     /// values support only `null` and string values.
     pub fn insertWithAttrs(
         self: *Text,
-        index: id.Clock,
+        index: id.TextIndex,
         bytes: []const u8,
         attributes: []const attrs.Attribute,
     ) TextError!void {
@@ -65,15 +65,15 @@ pub const Text = struct {
     /// value clears that attribute over the formatted range.
     pub fn format(
         self: *Text,
-        index: id.Clock,
-        format_len: id.Clock,
+        index: id.TextIndex,
+        format_len: id.TextLen,
         attributes: []const attrs.Attribute,
     ) TextError!void {
         try self.impl.format(index, format_len, attributes);
     }
 
     /// Deletes `delete_len` visible Unicode scalars starting at `index`.
-    pub fn delete(self: *Text, index: id.Clock, delete_len: id.Clock) TextError!void {
+    pub fn delete(self: *Text, index: id.TextIndex, delete_len: id.TextLen) TextError!void {
         try self.impl.delete(index, delete_len);
     }
 

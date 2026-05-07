@@ -8,6 +8,8 @@ pub const encoding = @import("encoding.zig");
 
 pub const ClientId = id.ClientId;
 pub const Clock = id.Clock;
+pub const TextIndex = id.TextIndex;
+pub const TextLen = id.TextLen;
 pub const Id = id.Id;
 
 pub const ItemHandle = item.ItemHandle;

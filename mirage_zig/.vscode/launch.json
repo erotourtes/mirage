@@ -24,6 +24,10 @@
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "preLaunchTask": "build Zig test for debug",
+            "initCommands": [
+                "command script import lldb_pretty_printers.py",
+                "type category enable zig.lang zig.std zig",
+            ],
         }
     ]
 }

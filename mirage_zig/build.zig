@@ -45,6 +45,7 @@ fn addExeModule(
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
         .use_llvm = true,
+        .use_lld = true,
     });
     const run_exe_tests = b.addRunArtifact(exe_tests);
     test_step.dependOn(&run_exe_tests.step);
@@ -106,6 +107,7 @@ fn addTests(
     const mod_tests = b.addTest(.{
         .root_module = mod,
         .use_llvm = true,
+        .use_lld = true,
     });
     const run_mod_tests = b.addRunArtifact(mod_tests);
     const test_step = b.step("test", "Run tests");
@@ -188,6 +190,7 @@ fn addDebugTestStep(
     const test_artifact = b.addTest(.{
         .name = "debug_test",
         .use_llvm = true,
+        .use_lld = true,
         .filters = filters,
         .root_module = b.createModule(.{
             .root_source_file = b.path(test_source.root_source_file),
@@ -228,6 +231,7 @@ fn addDiscoveredImportTests(
 
     const test_artifact = b.addTest(.{
         .use_llvm = true,
+        .use_lld = true,
         .root_module = b.createModule(.{
             .root_source_file = root_source_file,
             .target = target,

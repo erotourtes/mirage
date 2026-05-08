@@ -237,12 +237,14 @@ pub const TextImpl = struct {
         while (remaining > 0) {
             const handle = pos.right orelse return error.IndexOutOfBounds;
             const current = self.items.items[handle];
-            if (current.flags.deleted or !current.flags.countable) {
+            const is_visible = !current.flags.deleted and current.flags.countable;
+            if (!is_visible) {
                 pos = .{ .left = handle, .right = current.right };
                 continue;
             }
             const current_len = current.getClockLen();
-            if (current_len > remaining) {
+            const should_split = current_len > remaining;
+            if (should_split) {
                 _ = try self.splitItem(handle, remaining);
             }
 

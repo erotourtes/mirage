@@ -139,13 +139,17 @@ pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
     }
 }
 
-/// `remote` wants to insert between `initial_left` and `right`, but
-/// there are some items in this gap.
-///
-/// Returns the handle of the item's actual left neighbor deterministically.
+/// Resolves concurrent inserts into the same origin gap.
+/// Scans existing items between `initial_left` and `right`, advancing `left`
+/// past candidates that deterministically sort before `remote`.
+/// Direct siblings, items with the same left origin, are ordered by client id.
+/// Items whose origin is inside the scanned range are treated as nested
+/// conflict descendants and are only crossed when their parent conflict has
+/// already been resolved before the current conflict group.
 ///
 /// initial_left | A | B | C | right
 ///                   ^ remote wants to insert here
+/// TODO: wut is going on here???
 fn findConflictFreeLeft(
     text: *text_mod.TextImpl,
     initial_left: ?item_mod.ItemHandle,
@@ -156,49 +160,54 @@ fn findConflictFreeLeft(
     var scan = if (left) |left_handle| text.items.items[left_handle].right else text.start;
     var conflicting_items: std.ArrayList(item_mod.ItemHandle) = .empty;
     defer conflicting_items.deinit(text.allocator);
-    var items_before_origin: std.ArrayList(item_mod.ItemHandle) = .empty;
-    defer items_before_origin.deinit(text.allocator);
+    var every_scanned_items: std.ArrayList(item_mod.ItemHandle) = .empty;
+    defer every_scanned_items.deinit(text.allocator);
 
+    // walk between initial_left and right
     while (scan != null and scan != right) {
         const candidate_handle = scan.?;
         const candidate = text.items.items[candidate_handle];
-        try items_before_origin.append(text.allocator, candidate_handle);
+        defer scan = candidate.right;
+
+        try every_scanned_items.append(text.allocator, candidate_handle);
         try conflicting_items.append(text.allocator, candidate_handle);
 
-        if (id.checkIfIdEql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
+        const is_inserted_after_same_origin = id.checkIfIdEql(remote.initial_left_origin_id, candidate.initial_left_origin_id);
+        if (is_inserted_after_same_origin) {
             // deterministic client ID tiebreak
             const should_remote_go_after = candidate.id.client < remote.id.client;
             if (should_remote_go_after) {
                 left = candidate_handle;
                 conflicting_items.clearRetainingCapacity();
-            } else if (id.checkIfIdEql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
-                // remote goes before candidate
-                break;
+                continue;
             }
-        } else if (candidate.initial_left_origin_id) |candidate_origin| {
-            const origin_handle = text.store.findHandleById(text.items.items, candidate_origin) catch null;
-            if (origin_handle) |origin| {
-                if (containsHandle(items_before_origin.items, origin)) {
-                    if (!containsHandle(conflicting_items.items, origin)) {
-                        left = candidate_handle;
-                        conflicting_items.clearRetainingCapacity();
-                    }
-                } else {
-                    break;
-                }
-            } else {
+            const has_same_right_origin = id.checkIfIdEql(remote.initial_right_origin_id, candidate.initial_right_origin_id);
+            if (has_same_right_origin)
                 break;
-            }
-        } else {
-            break;
+
+            continue;
         }
-        scan = candidate.right;
+
+        if (candidate.initial_left_origin_id == null)
+            break;
+
+        const candidate_origin = candidate.initial_left_origin_id.?;
+        const origin_handle = text.store.findHandleById(text.items.items, candidate_origin) catch null orelse break;
+        const contains_handle = checkIfContainsHandle(every_scanned_items.items, origin_handle);
+        if (!contains_handle)
+            break;
+
+        const in_in_current_conflicting_group = checkIfContainsHandle(conflicting_items.items, origin_handle);
+        if (in_in_current_conflicting_group)
+            continue;
+        left = candidate_handle;
+        conflicting_items.clearRetainingCapacity();
     }
 
     return left;
 }
 
-fn containsHandle(handles: []const item_mod.ItemHandle, needle: item_mod.ItemHandle) bool {
+fn checkIfContainsHandle(handles: []const item_mod.ItemHandle, needle: item_mod.ItemHandle) bool {
     for (handles) |handle| {
         if (handle == needle) return true;
     }

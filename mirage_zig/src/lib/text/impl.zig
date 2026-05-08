@@ -294,13 +294,15 @@ pub const TextImpl = struct {
         var cursor = self.start;
         while (cursor) |handle| {
             const current = self.items.items[handle];
-            if (!current.flags.deleted and current.flags.countable) {
-                switch (current.content) {
-                    .string => |slice| try out.appendSlice(allocator, self.sliceBytes(slice)),
-                    .format => {},
-                }
+            defer cursor = current.right;
+            const is_visible = !current.flags.deleted and current.flags.countable;
+            if (!is_visible)
+                continue;
+
+            switch (current.content) {
+                .string => |slice| try out.appendSlice(allocator, self.sliceBytes(slice)),
+                .format => {},
             }
-            cursor = current.right;
         }
         return try out.toOwnedSlice(allocator);
     }

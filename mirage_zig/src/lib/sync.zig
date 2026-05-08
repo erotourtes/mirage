@@ -5,7 +5,7 @@ const store_mod = @import("store.zig");
 const encoding = @import("encoding.zig");
 const delete_set_mod = @import("delete_set.zig");
 const utf = @import("utf.zig");
-const text_mod = @import("text/public.zig");
+const attrs = @import("attrs.zig");
 
 pub const update_magic = "MYPEACE";
 pub const update_version: u8 = 1;
@@ -18,9 +18,17 @@ pub const Error = error{
     InvalidUpdate,
     UnsupportedUpdateVersion,
     TextTooLarge,
+    UnsupportedContent,
     VarIntOverflow,
     TrailingBytes,
 } || std.mem.Allocator.Error || store_mod.StoreError;
+
+pub const ReadUpdateError = Error || error{
+    IndexOutOfBounds,
+    InvalidHandle,
+    ItemTooLarge,
+    MissingDependency,
+};
 
 pub const StateVector = std.array_hash_map.Auto(id.ClientId, id.Clock);
 
@@ -30,6 +38,38 @@ pub const EncodeView = struct {
     items: []const item_mod.Item,
     bytes: []const u8,
 };
+
+pub const DecodedItem = struct {
+    id: id.Id,
+    len: id.Clock,
+    initial_left_origin_id: ?id.Id,
+    initial_right_origin_id: ?id.Id,
+    content: DecodedContent,
+};
+
+pub const DecodedContent = union(enum) {
+    string: []const u8,
+    format: DecodedFormat,
+};
+
+pub const DecodedFormat = struct {
+    key: []const u8,
+    value: attrs.AttributeValue,
+};
+
+pub const DecodedDeleteRange = struct {
+    client: id.ClientId,
+    clock: id.Clock,
+    len: id.Clock,
+};
+
+pub fn ReadUpdateCallbacks(comptime Context: type) type {
+    return struct {
+        context: Context,
+        item: *const fn (context: Context, decoded: DecodedItem) ReadUpdateError!void,
+        deletedRange: *const fn (context: Context, decoded: DecodedDeleteRange) ReadUpdateError!void,
+    };
+}
 
 pub fn encodeStateVector(view: EncodeView, allocator: std.mem.Allocator) Error![]u8 {
     var enc = encoding.Encoder.init(allocator);
@@ -90,6 +130,74 @@ pub fn readId(dec: *encoding.Decoder) Error!id.Id {
         .client = try dec.readVarU64(),
         .clock = try dec.readVarU64(),
     };
+}
+
+pub fn readUpdate(comptime Context: type, update: []const u8, callbacks: ReadUpdateCallbacks(Context)) ReadUpdateError!void {
+    var dec = encoding.Decoder.init(update);
+    const magic = try dec.readRaw(update_magic.len);
+    if (!std.mem.eql(u8, magic, update_magic)) return error.InvalidUpdate;
+    const version = try dec.readByte();
+    if (version != update_version) return error.UnsupportedUpdateVersion;
+
+    const client_count = try dec.readVarU64();
+    var client_index: usize = 0;
+    while (client_index < client_count) : (client_index += 1) {
+        const client = try dec.readVarU64();
+        const item_count = try dec.readVarU64();
+        var item_index: usize = 0;
+        while (item_index < item_count) : (item_index += 1) {
+            const clock = try dec.readVarU64();
+            const len_value = try dec.readVarU64();
+            const info = try dec.readByte();
+            const left_origin = if ((info & 1) != 0) try readId(&dec) else null;
+            const right_origin = if ((info & 2) != 0) try readId(&dec) else null;
+            const content_tag = try dec.readByte();
+            const content: DecodedContent = switch (content_tag) {
+                content_string_tag => blk: {
+                    const string_bytes = try dec.readBytes();
+                    const logical_len = try utf.countUnicodeLen(string_bytes);
+                    if (logical_len != len_value) return error.InvalidUpdate;
+                    break :blk .{ .string = string_bytes };
+                },
+                content_format_tag => blk: {
+                    if (len_value != 1) return error.InvalidUpdate;
+                    const key = try dec.readBytes();
+                    const value_is_null = (try dec.readByte()) != 0;
+                    const value: attrs.AttributeValue = if (value_is_null)
+                        .null
+                    else
+                        .{ .string = try dec.readBytes() };
+                    break :blk .{ .format = .{ .key = key, .value = value } };
+                },
+                else => return error.UnsupportedContent,
+            };
+            try callbacks.item(callbacks.context, .{
+                .id = .{ .client = client, .clock = clock },
+                .len = len_value,
+                .initial_left_origin_id = left_origin,
+                .initial_right_origin_id = right_origin,
+                .content = content,
+            });
+        }
+    }
+
+    const delete_client_count = try dec.readVarU64();
+    var delete_client_index: usize = 0;
+    while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
+        const client = try dec.readVarU64();
+        const delete_count = try dec.readVarU64();
+        var delete_index: usize = 0;
+        while (delete_index < delete_count) : (delete_index += 1) {
+            const clock = try dec.readVarU64();
+            const delete_len = try dec.readVarU64();
+            try callbacks.deletedRange(callbacks.context, .{
+                .client = client,
+                .clock = clock,
+                .len = delete_len,
+            });
+        }
+    }
+    try dec.expectEnd();
 }
 
 fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const StateVector) Error!void {
@@ -267,53 +375,14 @@ fn attributeValueBytes(view: EncodeView, slice: item_mod.AttributeSlice) []const
     return view.bytes[start..][0..slice.value_len];
 }
 
-pub fn validateUpdateBytes(update: []const u8) text_mod.TextError!void {
-    var dec = encoding.Decoder.init(update);
-    const magic = try dec.readRaw(update_magic.len);
-    if (!std.mem.eql(u8, magic, update_magic)) return error.InvalidUpdate;
-    const version = try dec.readByte();
-    if (version != update_version) return error.UnsupportedUpdateVersion;
-
-    const client_count = try dec.readVarU64();
-    var client_index: usize = 0;
-    while (client_index < client_count) : (client_index += 1) {
-        _ = try dec.readVarU64();
-        const item_count = try dec.readVarU64();
-        var item_index: usize = 0;
-        while (item_index < item_count) : (item_index += 1) {
-            _ = try dec.readVarU64();
-            const len_value = try dec.readVarU64();
-            const info = try dec.readByte();
-            if ((info & 1) != 0) _ = try readId(&dec);
-            if ((info & 2) != 0) _ = try readId(&dec);
-            const content_tag = try dec.readByte();
-            switch (content_tag) {
-                content_string_tag => {
-                    const string_bytes = try dec.readBytes();
-                    const logical_len = try utf.countUnicodeLen(string_bytes);
-                    if (logical_len != len_value) return error.InvalidUpdate;
-                },
-                content_format_tag => {
-                    if (len_value != 1) return error.InvalidUpdate;
-                    _ = try dec.readBytes();
-                    const value_is_null = (try dec.readByte()) != 0;
-                    if (!value_is_null) _ = try dec.readBytes();
-                },
-                else => return error.UnsupportedContent,
-            }
-        }
-    }
-
-    const delete_client_count = try dec.readVarU64();
-    var delete_client_index: usize = 0;
-    while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
-        _ = try dec.readVarU64();
-        const delete_count = try dec.readVarU64();
-        var delete_index: usize = 0;
-        while (delete_index < delete_count) : (delete_index += 1) {
-            _ = try dec.readVarU64();
-            _ = try dec.readVarU64();
-        }
-    }
-    try dec.expectEnd();
+pub fn validateUpdateBytes(update: []const u8) ReadUpdateError!void {
+    const noop = struct {
+        fn item(_: void, _: DecodedItem) ReadUpdateError!void {}
+        fn deletedRange(_: void, _: DecodedDeleteRange) ReadUpdateError!void {}
+    };
+    try readUpdate(void, update, .{
+        .context = {},
+        .item = noop.item,
+        .deletedRange = noop.deletedRange,
+    });
 }

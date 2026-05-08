@@ -22,6 +22,12 @@ pub const RemoteFormat = struct {
     value: attrs.AttributeValue,
 };
 
+pub const RemoteDeleteRange = struct {
+    client: id.ClientId,
+    clock: id.Clock,
+    len: id.Clock,
+};
+
 pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
     const state = text.store.getState(text.items.items, remote.id.client);
     if (remote.id.clock + remote.len <= state) return;
@@ -83,23 +89,23 @@ pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
     if (remote.content == .string) text.length += remote.len;
 }
 
-pub fn deletedRange(text: *text_mod.TextImpl, client: id.ClientId, clock: id.Clock, len_to_delete: id.Clock) !void {
-    if (len_to_delete == 0) return;
-    const state = text.store.getState(text.items.items, client);
-    if (state < clock + len_to_delete) return error.MissingDependency;
+pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
+    if (remote.len == 0) return;
+    const state = text.store.getState(text.items.items, remote.client);
+    if (state < remote.clock + remote.len) return error.MissingDependency;
 
-    const end_clock = clock + len_to_delete;
-    _ = try text.getItemCleanStart(.{ .client = client, .clock = clock });
+    const end_clock = remote.clock + remote.len;
+    _ = try text.getItemCleanStart(.{ .client = remote.client, .clock = remote.clock });
     if (end_clock < state) {
-        _ = try text.getItemCleanStart(.{ .client = client, .clock = end_clock });
+        _ = try text.getItemCleanStart(.{ .client = remote.client, .clock = end_clock });
     }
 
-    const client_index = text.store.clients.getIndex(client) orelse return error.ClientNotFound;
+    const client_index = text.store.clients.getIndex(remote.client) orelse return error.ClientNotFound;
     const client_structs = text.store.clients.values()[client_index].items.items;
     for (client_structs) |handle| {
         const current = text.items.items[handle];
         if (current.id.clock >= end_clock) break;
-        if (current.id.clock + current.getClockLen() <= clock) continue;
+        if (current.id.clock + current.getClockLen() <= remote.clock) continue;
 
         if (!text.items.items[handle].flags.deleted) {
             text.items.items[handle].flags.deleted = true;

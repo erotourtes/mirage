@@ -2,7 +2,6 @@ const std = @import("std");
 const id = @import("../id.zig");
 const item_mod = @import("../item.zig");
 const store_mod = @import("../store.zig");
-const encoding = @import("../encoding.zig");
 const attrs = @import("../attrs.zig");
 const utf = @import("../utf.zig");
 const formatting = @import("../formatting.zig");
@@ -472,67 +471,42 @@ pub const TextImpl = struct {
     fn applyUpdateOnce(self: *TextImpl, update: []const u8) TextError!void {
         try sync.validateUpdateBytes(update);
 
-        var dec = encoding.Decoder.init(update);
-        const magic = try dec.readRaw(sync.update_magic.len);
-        if (!std.mem.eql(u8, magic, sync.update_magic)) return error.InvalidUpdate;
-        const version = try dec.readByte();
-        if (version != sync.update_version) return error.UnsupportedUpdateVersion;
+        const callbacks = struct {
+            const Context = struct {
+                text: *TextImpl,
+            };
 
-        const client_count = try dec.readVarU64();
-        var client_index: usize = 0;
-        while (client_index < client_count) : (client_index += 1) {
-            const client = try dec.readVarU64();
-            const item_count = try dec.readVarU64();
-            var item_index: usize = 0;
-            while (item_index < item_count) : (item_index += 1) {
-                const clock = try dec.readVarU64();
-                const len_value = try dec.readVarU64();
-                const info = try dec.readByte();
-                const left_origin = if ((info & 1) != 0) try sync.readId(&dec) else null;
-                const right_origin = if ((info & 2) != 0) try sync.readId(&dec) else null;
-                const content_tag = try dec.readByte();
-                const content: integrate.RemoteContent = switch (content_tag) {
-                    sync.content_string_tag => blk: {
-                        const string_bytes = try dec.readBytes();
-                        const logical_len = try utf.countUnicodeLen(string_bytes);
-                        if (logical_len != len_value) return error.InvalidUpdate;
-                        break :blk .{ .string = string_bytes };
-                    },
-                    sync.content_format_tag => blk: {
-                        if (len_value != 1) return error.InvalidUpdate;
-                        const key = try dec.readBytes();
-                        const value_is_null = (try dec.readByte()) != 0;
-                        const value: attrs.AttributeValue = if (value_is_null)
-                            .null
-                        else
-                            .{ .string = try dec.readBytes() };
-                        break :blk .{ .format = .{ .key = key, .value = value } };
-                    },
-                    else => return error.UnsupportedContent,
+            fn item(context: Context, decoded: sync.DecodedItem) sync.ReadUpdateError!void {
+                const content: integrate.RemoteContent = switch (decoded.content) {
+                    .string => |string| .{ .string = string },
+                    .format => |format_content| .{ .format = .{
+                        .key = format_content.key,
+                        .value = format_content.value,
+                    } },
                 };
-                try integrate.item(self, .{
-                    .id = .{ .client = client, .clock = clock },
-                    .len = len_value,
-                    .initial_left_origin_id = left_origin,
-                    .initial_right_origin_id = right_origin,
+                try integrate.item(context.text, .{
+                    .id = decoded.id,
+                    .len = decoded.len,
+                    .initial_left_origin_id = decoded.initial_left_origin_id,
+                    .initial_right_origin_id = decoded.initial_right_origin_id,
                     .content = content,
                 });
             }
-        }
 
-        const delete_client_count = try dec.readVarU64();
-        var delete_client_index: usize = 0;
-        while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
-            const client = try dec.readVarU64();
-            const delete_count = try dec.readVarU64();
-            var delete_index: usize = 0;
-            while (delete_index < delete_count) : (delete_index += 1) {
-                const clock = try dec.readVarU64();
-                const delete_len = try dec.readVarU64();
-                try integrate.deletedRange(self, client, clock, delete_len);
+            fn deletedRange(context: Context, decoded: sync.DecodedDeleteRange) sync.ReadUpdateError!void {
+                try integrate.deletedRange(context.text, .{
+                    .client = decoded.client,
+                    .clock = decoded.clock,
+                    .len = decoded.len,
+                });
             }
-        }
-        try dec.expectEnd();
+        };
+
+        try sync.readUpdate(callbacks.Context, update, .{
+            .context = .{ .text = self },
+            .item = callbacks.item,
+            .deletedRange = callbacks.deletedRange,
+        });
     }
 
     pub fn linkInserted(

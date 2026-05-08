@@ -131,8 +131,8 @@ pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
 
         if (!text.items.items[handle].flags.deleted) {
             text.items.items[handle].flags.deleted = true;
-            text.invalidateSearchMarkers();
             if (text.items.items[handle].flags.countable) {
+                text.invalidatePositionCursor();
                 text.length -= text.items.items[handle].getClockLen();
             }
         }

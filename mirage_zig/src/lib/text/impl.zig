@@ -6,7 +6,6 @@ const attrs = @import("../attrs.zig");
 const utf = @import("../utf.zig");
 const formatting = @import("../formatting.zig");
 const delta_mod = @import("../delta.zig");
-const search = @import("../search.zig");
 const sync = @import("../sync.zig");
 const integrate = @import("../integrate.zig");
 
@@ -26,6 +25,7 @@ pub const TextError = error{
 } || std.mem.Allocator.Error || store_mod.StoreError;
 
 const Position = struct {
+    index: id.TextIndex,
     left: ?item_mod.ItemHandle,
     right: ?item_mod.ItemHandle,
 };
@@ -37,6 +37,10 @@ pub const TextImpl = struct {
     /// The first item in the linked list
     /// If it's `null`, the list is empty
     start: ?item_mod.ItemHandle = null,
+
+    /// The last item in the linked list
+    /// If it's `null`, the list is empty
+    end: ?item_mod.ItemHandle = null,
 
     /// The visible text length (non-deleted, countable items)
     length: id.TextLen = 0,
@@ -69,7 +73,7 @@ pub const TextImpl = struct {
     /// Updates that arrived before their dependencies.
     /// They can't be applied yet
     pending_updates: std.ArrayList([]u8) = .empty,
-    search_cache: search.Cache = .{},
+    position_cursor: ?Position = null,
 
     pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) TextImpl {
         return .{
@@ -83,7 +87,6 @@ pub const TextImpl = struct {
             self.allocator.free(pending);
         }
         self.pending_updates.deinit(self.allocator);
-        self.search_cache.deinit(self.allocator);
         self.store.deinit(self.allocator);
         self.bytes.deinit(self.allocator);
         self.items.deinit(self.allocator);
@@ -123,16 +126,16 @@ pub const TextImpl = struct {
         var pos = try self.findPosition(index);
         for (attributes) |attribute| {
             const marker = try self.insertFormatAt(pos, attribute);
-            pos = .{ .left = marker, .right = self.items.items[marker].right };
+            pos = .{ .index = pos.index, .left = marker, .right = self.items.items[marker].right };
         }
         const string_handle = try self.insertStringAt(pos, bytes);
-        pos = .{ .left = string_handle, .right = self.items.items[string_handle].right };
+        pos = .{ .index = pos.index + logical_len, .left = string_handle, .right = self.items.items[string_handle].right };
         for (attributes) |attribute| {
             const marker = try self.insertFormatAt(pos, .{
                 .key = attribute.key,
                 .value = .null,
             });
-            pos = .{ .left = marker, .right = self.items.items[marker].right };
+            pos = .{ .index = pos.index, .left = marker, .right = self.items.items[marker].right };
         }
         try self.cleanupFormatting();
     }
@@ -158,12 +161,12 @@ pub const TextImpl = struct {
         var start_pos = try self.findPosition(index);
         for (attributes) |attribute| {
             const marker = try self.insertFormatAt(start_pos, attribute);
-            start_pos = .{ .left = marker, .right = self.items.items[marker].right };
+            start_pos = .{ .index = start_pos.index, .left = marker, .right = self.items.items[marker].right };
         }
         var end_pos = try self.findPosition(index + format_len);
         for (restore_attributes) |owned_attribute| {
             const marker = try self.insertFormatAt(end_pos, owned_attribute.attribute);
-            end_pos = .{ .left = marker, .right = self.items.items[marker].right };
+            end_pos = .{ .index = end_pos.index, .left = marker, .right = self.items.items[marker].right };
         }
         try self.cleanupFormatting();
     }
@@ -200,6 +203,11 @@ pub const TextImpl = struct {
         try self.store.addStruct(self.allocator, self.items.items, handle);
         self.linkInserted(handle, pos.left, pos.right);
         self.length += logical_len;
+        self.position_cursor = .{
+            .index = pos.index + logical_len,
+            .left = handle,
+            .right = self.items.items[handle].right,
+        };
         return handle;
     }
 
@@ -223,6 +231,11 @@ pub const TextImpl = struct {
 
         try self.store.addStruct(self.allocator, self.items.items, handle);
         self.linkInserted(handle, pos.left, pos.right);
+        self.position_cursor = .{
+            .index = pos.index,
+            .left = handle,
+            .right = self.items.items[handle].right,
+        };
         return handle;
     }
 
@@ -238,7 +251,7 @@ pub const TextImpl = struct {
             const current = self.items.items[handle];
             const is_visible = !current.flags.deleted and current.flags.countable;
             if (!is_visible) {
-                pos = .{ .left = handle, .right = current.right };
+                pos = .{ .index = index, .left = handle, .right = current.right };
                 continue;
             }
             const current_len = current.getClockLen();
@@ -250,14 +263,15 @@ pub const TextImpl = struct {
             const delete_handle = handle;
             const deleted_len = self.items.items[delete_handle].getClockLen();
             self.items.items[delete_handle].flags.deleted = true;
-            self.invalidateSearchMarkers();
             self.length -= deleted_len;
             remaining -= deleted_len;
             pos = .{
+                .index = index,
                 .left = delete_handle,
                 .right = self.items.items[delete_handle].right,
             };
         }
+        self.position_cursor = pos;
         try self.cleanupFormatting();
     }
 
@@ -332,11 +346,62 @@ pub const TextImpl = struct {
     fn findPosition(self: *TextImpl, index: id.TextIndex) TextError!Position {
         if (index > self.length) return error.IndexOutOfBounds;
 
-        try self.search_cache.ensure(self);
-        const nearest = self.search_cache.nearest(self, index);
-        var remaining: id.TextLen = nearest.item_offset + (index - nearest.index);
-        var left: ?item_mod.ItemHandle = if (nearest.handle) |handle| self.items.items[handle].left else null;
-        var cursor = nearest.handle;
+        const Direction = enum {
+            forward_from_start,
+            backward_from_end,
+            forward_from_cursor,
+            backward_from_cursor,
+        };
+
+        var direction: Direction = .forward_from_start;
+        var best_distance = index;
+
+        const distance_from_end = self.length - index;
+        if (distance_from_end < best_distance) {
+            direction = .backward_from_end;
+            best_distance = distance_from_end;
+        }
+
+        if (self.position_cursor) |cached| {
+            if (index >= cached.index) {
+                const distance = index - cached.index;
+                if (distance <= best_distance) {
+                    direction = .forward_from_cursor;
+                    best_distance = distance;
+                }
+            } else {
+                const distance = cached.index - index;
+                if (distance <= best_distance) {
+                    direction = .backward_from_cursor;
+                    best_distance = distance;
+                }
+            }
+        }
+
+        return switch (direction) {
+            .forward_from_start => try self.findPositionForward(index, null, self.start, best_distance),
+            .backward_from_end => try self.findPositionBackward(index, self.end, null, best_distance),
+            .forward_from_cursor => blk: {
+                const cached = self.position_cursor.?;
+                break :blk try self.findPositionForward(index, cached.left, cached.right, best_distance);
+            },
+            .backward_from_cursor => blk: {
+                const cached = self.position_cursor.?;
+                break :blk try self.findPositionBackward(index, cached.left, cached.right, best_distance);
+            },
+        };
+    }
+
+    fn findPositionForward(
+        self: *TextImpl,
+        index: id.TextIndex,
+        initial_left: ?item_mod.ItemHandle,
+        initial_cursor: ?item_mod.ItemHandle,
+        initial_remaining: id.TextLen,
+    ) TextError!Position {
+        var remaining = initial_remaining;
+        var left = initial_left;
+        var cursor = initial_cursor;
         while (cursor) |handle| {
             const current = self.items.items[handle];
             defer {
@@ -352,25 +417,80 @@ pub const TextImpl = struct {
 
             const is_found = remaining == 0;
             if (is_found) {
-                return .{ .left = left, .right = handle };
+                const pos = Position{ .index = index, .left = left, .right = handle };
+                self.position_cursor = pos;
+                return pos;
             }
 
             const current_len: id.TextLen = current.getClockLen();
             const is_within_current = remaining < current_len;
             if (is_within_current) {
                 const right = try self.splitItem(handle, remaining);
-                return .{ .left = handle, .right = right };
+                const pos = Position{ .index = index, .left = handle, .right = right };
+                self.position_cursor = pos;
+                return pos;
             }
 
             remaining -= current_len;
         }
 
         if (remaining != 0) return error.IndexOutOfBounds;
-        return .{ .left = left, .right = null };
+        const pos = Position{ .index = index, .left = left, .right = null };
+        self.position_cursor = pos;
+        return pos;
     }
 
-    pub fn invalidateSearchMarkers(self: *TextImpl) void {
-        self.search_cache.invalidate();
+    fn findPositionBackward(
+        self: *TextImpl,
+        index: id.TextIndex,
+        initial_cursor: ?item_mod.ItemHandle,
+        initial_right: ?item_mod.ItemHandle,
+        initial_remaining: id.TextLen,
+    ) TextError!Position {
+        var remaining = initial_remaining;
+        var right = initial_right;
+        var cursor = initial_cursor;
+        if (remaining == 0) {
+            const pos = Position{ .index = index, .left = cursor, .right = right };
+            self.position_cursor = pos;
+            return pos;
+        }
+
+        while (cursor) |handle| {
+            const current = self.items.items[handle];
+            const is_visible = !current.flags.deleted and current.flags.countable;
+            if (!is_visible) {
+                right = handle;
+                cursor = current.left;
+                continue;
+            }
+
+            const current_len: id.TextLen = current.getClockLen();
+            if (remaining < current_len) {
+                const right_handle = try self.splitItem(handle, current_len - remaining);
+                const pos = Position{ .index = index, .left = handle, .right = right_handle };
+                self.position_cursor = pos;
+                return pos;
+            }
+            if (remaining == current_len) {
+                const pos = Position{ .index = index, .left = current.left, .right = handle };
+                self.position_cursor = pos;
+                return pos;
+            }
+
+            remaining -= current_len;
+            right = handle;
+            cursor = current.left;
+        }
+
+        if (remaining != 0) return error.IndexOutOfBounds;
+        const pos = Position{ .index = index, .left = null, .right = right };
+        self.position_cursor = pos;
+        return pos;
+    }
+
+    pub fn invalidatePositionCursor(self: *TextImpl) void {
+        self.position_cursor = null;
     }
 
     /// Splits the item at the given offset (in visible characters).
@@ -422,9 +542,11 @@ pub const TextImpl = struct {
         self.items.items[handle].right = right_handle;
         if (left_snapshot.right) |old_right| {
             self.items.items[old_right].left = right_handle;
+        } else {
+            self.end = right_handle;
         }
         try self.store.insertStructAfter(self.allocator, self.items.items, handle, right_handle);
-        self.invalidateSearchMarkers();
+        self.invalidatePositionCursor();
         return right_handle;
     }
 
@@ -530,10 +652,12 @@ pub const TextImpl = struct {
         }
         if (right) |right_handle| {
             self.items.items[right_handle].left = handle;
+        } else {
+            self.end = handle;
         }
         self.items.items[handle].left = left;
         self.items.items[handle].right = right;
-        self.invalidateSearchMarkers();
+        self.invalidatePositionCursor();
     }
 
     /// Returns the `new_item` handle
@@ -653,6 +777,39 @@ test "findPosition tracks invisible items in linked-list gap" {
 
     try std.testing.expectEqual(2, position.left);
     try std.testing.expectEqual(null, position.right);
+}
+
+test "findPosition can scan backward from the cursor and split item" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "ABCD");
+
+    const position = try text.findPosition(2);
+
+    try std.testing.expectEqual(0, position.left);
+    try std.testing.expectEqual(1, position.right);
+    try std.testing.expectEqual(2, text.items.items[0].getClockLen());
+    try std.testing.expectEqual(2, text.items.items[1].getClockLen());
+    try std.testing.expectEqual(1, text.end);
+}
+
+test "findPosition can use the document end as a backward anchor" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "A");
+    try text.insert(1, "B");
+    try text.insert(2, "C");
+    text.position_cursor = null;
+
+    const position = try text.findPosition(2);
+
+    try std.testing.expectEqual(1, position.left);
+    try std.testing.expectEqual(2, position.right);
+    try std.testing.expectEqual(2, text.end);
 }
 
 //==============================================================================

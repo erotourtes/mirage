@@ -8,10 +8,9 @@ pub const View = struct {
     items: []const item_mod.Item,
     bytes: []const u8,
     start: ?item_mod.ItemHandle,
+    end: ?item_mod.ItemHandle,
     length: id.TextLen,
     pending_update_count: usize,
-    search_markers_valid: bool,
-    search_marker_count: usize,
 };
 
 pub fn checkIntegrity(view: View) !void {
@@ -29,6 +28,7 @@ pub fn checkIntegrity(view: View) !void {
         cursor = current.right;
     }
     if (visible_len != view.length) return error.InvalidHandle;
+    if (previous != view.end) return error.InvalidHandle;
 }
 
 pub fn itemCount(view: View) usize {
@@ -53,14 +53,6 @@ pub fn clientState(view: View, client: id.ClientId) id.Clock {
 
 pub fn pendingUpdateCount(view: View) usize {
     return view.pending_update_count;
-}
-
-pub fn searchMarkersValid(view: View) bool {
-    return view.search_markers_valid;
-}
-
-pub fn searchMarkerCount(view: View) usize {
-    return view.search_marker_count;
 }
 
 pub fn liveFormatMarkerCount(view: View, key: []const u8, value: ?[]const u8) usize {

@@ -38,7 +38,7 @@ pub fn cleanup(text: *text_mod.TextImpl) !void {
                     !hasVisibleContentBeforeNextSameKey(text, handle, format_slice);
                 if (should_mark_as_deleted) {
                     text.items.items[handle].flags.deleted = true;
-                    text.invalidateSearchMarkers();
+                    text.invalidatePositionCursor();
                 } else {
                     try updateActiveAttrs(text, text.allocator, &active_attrs, format_slice);
                 }

@@ -151,18 +151,6 @@ pub const debug = struct {
         return debug_mod.pendingUpdateCount(debug_view.fromImpl(&text.impl));
     }
 
-    pub fn ensureSearchMarkers(text: *Text) TextError!void {
-        try text.impl.search_cache.ensure(&text.impl);
-    }
-
-    pub fn searchMarkersValid(text: *const Text) bool {
-        return debug_mod.searchMarkersValid(debug_view.fromImpl(&text.impl));
-    }
-
-    pub fn searchMarkerCount(text: *const Text) usize {
-        return debug_mod.searchMarkerCount(debug_view.fromImpl(&text.impl));
-    }
-
     pub fn liveFormatMarkerCount(text: *const Text, key: []const u8, value: ?[]const u8) usize {
         return debug_mod.liveFormatMarkerCount(debug_view.fromImpl(&text.impl), key, value);
     }

@@ -120,12 +120,12 @@ pub fn decodeStateVector(allocator: std.mem.Allocator, encoded: []const u8) Erro
     return state;
 }
 
-pub fn writeId(enc: *encoding.Encoder, value: id.Id) Error!void {
+fn writeId(enc: *encoding.Encoder, value: id.Id) Error!void {
     try enc.writeVarU64(value.client);
     try enc.writeVarU64(value.clock);
 }
 
-pub fn readId(dec: *encoding.Decoder) Error!id.Id {
+fn readId(dec: *encoding.Decoder) Error!id.Id {
     return .{
         .client = try dec.readVarU64(),
         .clock = try dec.readVarU64(),

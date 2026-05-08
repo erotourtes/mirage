@@ -428,6 +428,10 @@ pub const TextImpl = struct {
         return right_handle;
     }
 
+    // Ensures there is item gap before `target`.
+    /// Returns the right handle of the gap.
+    ///  01234
+    /// `Hello` - target: 2> `He` [gap] `llo`
     pub fn getItemCleanStart(self: *TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
         const handle = try self.store.findHandleById(self.items.items, target);
         const current = self.items.items[handle];
@@ -437,6 +441,10 @@ pub const TextImpl = struct {
         return handle;
     }
 
+    /// Ensures there is item gap after `target`
+    /// Returns the left handle of the gap
+    ///  01234
+    /// `Hello` - target: 2> `Hel` [gap] `lo`
     pub fn getItemCleanEnd(self: *TextImpl, target: id.Id) TextError!item_mod.ItemHandle {
         const handle = try self.store.findHandleById(self.items.items, target);
         const current = self.items.items[handle];
@@ -676,4 +684,36 @@ test "splitItem splits string item at the end" {
 
     const right_handle = text.splitItem(0, 3);
     try std.testing.expectError(error.IndexOutOfBounds, right_handle);
+}
+
+//==============================================================================
+// getItemCleanStart/End
+//==============================================================================
+
+test "getItemCleanStart splits item if target clock is in the middle of it" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "Hello");
+
+    const handle = try text.getItemCleanStart(.{ .client = 1, .clock = 2 });
+
+    try std.testing.expectEqual(2, text.items.items[handle].id.clock);
+    try std.testing.expectEqual(3, text.items.items[handle].getClockLen());
+    try std.testing.expectEqualStrings("llo", text.sliceBytes(text.items.items[handle].content.string));
+}
+
+test "getItemCleanEnd splits item if target clock is in the middle of it" {
+    const allocator = std.testing.allocator;
+    var text = TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insert(0, "Hello");
+
+    const handle = try text.getItemCleanEnd(.{ .client = 1, .clock = 2 });
+
+    try std.testing.expectEqual(0, text.items.items[handle].id.clock);
+    try std.testing.expectEqual(3, text.items.items[handle].getClockLen());
+    try std.testing.expectEqualStrings("Hel", text.sliceBytes(text.items.items[handle].content.string));
 }

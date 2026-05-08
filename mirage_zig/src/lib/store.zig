@@ -30,6 +30,7 @@ pub const StructStore = struct {
         self.* = undefined;
     }
 
+    /// Gives the next clock we don't have yet
     pub fn getState(self: *const StructStore, items: []const item.Item, client: id.ClientId) id.Clock {
         const index = self.clients.getIndex(client) orelse return 0;
         const structs = self.clients.values()[index].items.items;

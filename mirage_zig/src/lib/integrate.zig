@@ -29,12 +29,20 @@ pub const RemoteDeleteRange = struct {
 };
 
 pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
-    const state = text.store.getState(text.items.items, remote.id.client);
-    if (remote.id.clock + remote.len <= state) return;
-    if (remote.id.clock != state) return error.MissingDependency;
+    const next_expected_clock = text.store.getState(text.items.items, remote.id.client);
+    if (remote.id.clock + remote.len <= next_expected_clock) return;
+    if (remote.id.clock != next_expected_clock) return error.MissingDependency;
 
-    if (remote.initial_left_origin_id) |origin| {
-        if (origin.client != remote.id.client and text.store.getState(text.items.items, origin.client) <= origin.clock) {
+    if (remote.initial_left_origin_id) |remote_origin| {
+        const is_missing_dependency = brk: {
+            // If the origin is from the same client
+            // we already checked for remote.id.clock != state
+            if (remote_origin.client == remote.id.client)
+                break :brk false;
+            const next_expected_origin_clock = text.store.getState(text.items.items, remote_origin.client);
+            break :brk next_expected_origin_clock <= remote_origin.clock;
+        };
+        if (is_missing_dependency) {
             return error.MissingDependency;
         }
     }
@@ -53,9 +61,23 @@ pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
     else
         null;
 
-    if ((left == null and (right == null or text.items.items[right.?].left != null)) or
-        (left != null and text.items.items[left.?].right != right))
-    {
+    const is_conflicting = brk: {
+        const is_inserting_at_beginning = left == null;
+        if (is_inserting_at_beginning) {
+            if (right == null)
+                // no origin boundaries; resolve against existing items
+                break :brk true;
+            if (text.items.items[right.?].left != null)
+                // there is already something before `right`
+                break :brk true;
+            break :brk false;
+        }
+
+        // insert after `left` before `right`.
+        // if there is something between `left` and `right`, it must be a conflict
+        break :brk text.items.items[left.?].right != right;
+    };
+    if (is_conflicting) {
         left = try findConflictFreeLeft(text, left, right, remote);
     }
 
@@ -117,6 +139,13 @@ pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
     }
 }
 
+/// `remote` wants to insert between `initial_left` and `right`, but
+/// there are some items in this gap.
+///
+/// Returns the handle of the item's actual left neighbor deterministically.
+///
+/// initial_left | A | B | C | right
+///                   ^ remote wants to insert here
 fn findConflictFreeLeft(
     text: *text_mod.TextImpl,
     initial_left: ?item_mod.ItemHandle,
@@ -137,10 +166,13 @@ fn findConflictFreeLeft(
         try conflicting_items.append(text.allocator, candidate_handle);
 
         if (id.checkIfIdEql(remote.initial_left_origin_id, candidate.initial_left_origin_id)) {
-            if (candidate.id.client < remote.id.client) {
+            // deterministic client ID tiebreak
+            const should_remote_go_after = candidate.id.client < remote.id.client;
+            if (should_remote_go_after) {
                 left = candidate_handle;
                 conflicting_items.clearRetainingCapacity();
             } else if (id.checkIfIdEql(remote.initial_right_origin_id, candidate.initial_right_origin_id)) {
+                // remote goes before candidate
                 break;
             }
         } else if (candidate.initial_left_origin_id) |candidate_origin| {

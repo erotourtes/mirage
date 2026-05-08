@@ -113,12 +113,12 @@ pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
 
 pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
     if (remote.len == 0) return;
-    const state = text.store.getState(text.items.items, remote.client);
-    if (state < remote.clock + remote.len) return error.MissingDependency;
+    const next_expected_clock = text.store.getState(text.items.items, remote.client);
+    if (next_expected_clock < remote.clock + remote.len) return error.MissingDependency;
 
     const end_clock = remote.clock + remote.len;
     _ = try text.getItemCleanStart(.{ .client = remote.client, .clock = remote.clock });
-    if (end_clock < state) {
+    if (end_clock < next_expected_clock) {
         _ = try text.getItemCleanStart(.{ .client = remote.client, .clock = end_clock });
     }
 

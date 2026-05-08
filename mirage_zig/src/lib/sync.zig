@@ -5,6 +5,7 @@ const store_mod = @import("store.zig");
 const encoding = @import("encoding.zig");
 const delete_set_mod = @import("delete_set.zig");
 const utf = @import("utf.zig");
+const text_mod = @import("text/public.zig");
 
 pub const update_magic = "MYPEACE";
 pub const update_version: u8 = 1;
@@ -264,4 +265,55 @@ fn attributeKeyBytes(view: EncodeView, slice: item_mod.AttributeSlice) []const u
 fn attributeValueBytes(view: EncodeView, slice: item_mod.AttributeSlice) []const u8 {
     const start: usize = slice.value_start;
     return view.bytes[start..][0..slice.value_len];
+}
+
+pub fn validateUpdateBytes(update: []const u8) text_mod.TextError!void {
+    var dec = encoding.Decoder.init(update);
+    const magic = try dec.readRaw(update_magic.len);
+    if (!std.mem.eql(u8, magic, update_magic)) return error.InvalidUpdate;
+    const version = try dec.readByte();
+    if (version != update_version) return error.UnsupportedUpdateVersion;
+
+    const client_count = try dec.readVarU64();
+    var client_index: usize = 0;
+    while (client_index < client_count) : (client_index += 1) {
+        _ = try dec.readVarU64();
+        const item_count = try dec.readVarU64();
+        var item_index: usize = 0;
+        while (item_index < item_count) : (item_index += 1) {
+            _ = try dec.readVarU64();
+            const len_value = try dec.readVarU64();
+            const info = try dec.readByte();
+            if ((info & 1) != 0) _ = try readId(&dec);
+            if ((info & 2) != 0) _ = try readId(&dec);
+            const content_tag = try dec.readByte();
+            switch (content_tag) {
+                content_string_tag => {
+                    const string_bytes = try dec.readBytes();
+                    const logical_len = try utf.countUnicodeLen(string_bytes);
+                    if (logical_len != len_value) return error.InvalidUpdate;
+                },
+                content_format_tag => {
+                    if (len_value != 1) return error.InvalidUpdate;
+                    _ = try dec.readBytes();
+                    const value_is_null = (try dec.readByte()) != 0;
+                    if (!value_is_null) _ = try dec.readBytes();
+                },
+                else => return error.UnsupportedContent,
+            }
+        }
+    }
+
+    const delete_client_count = try dec.readVarU64();
+    var delete_client_index: usize = 0;
+    while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
+        _ = try dec.readVarU64();
+        const delete_count = try dec.readVarU64();
+        var delete_index: usize = 0;
+        while (delete_index < delete_count) : (delete_index += 1) {
+            _ = try dec.readVarU64();
+            _ = try dec.readVarU64();
+        }
+    }
+    try dec.expectEnd();
 }

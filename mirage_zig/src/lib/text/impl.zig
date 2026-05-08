@@ -470,7 +470,7 @@ pub const TextImpl = struct {
     }
 
     fn applyUpdateOnce(self: *TextImpl, update: []const u8) TextError!void {
-        try validateUpdateBytes(update);
+        try sync.validateUpdateBytes(update);
 
         var dec = encoding.Decoder.init(update);
         const magic = try dec.readRaw(sync.update_magic.len);
@@ -605,57 +605,6 @@ pub const TextImpl = struct {
 
 fn intCast(comptime T: type, value: anytype) error{TextTooLarge}!T {
     return std.math.cast(T, value) orelse error.TextTooLarge;
-}
-
-fn validateUpdateBytes(update: []const u8) TextError!void {
-    var dec = encoding.Decoder.init(update);
-    const magic = try dec.readRaw(sync.update_magic.len);
-    if (!std.mem.eql(u8, magic, sync.update_magic)) return error.InvalidUpdate;
-    const version = try dec.readByte();
-    if (version != sync.update_version) return error.UnsupportedUpdateVersion;
-
-    const client_count = try dec.readVarU64();
-    var client_index: usize = 0;
-    while (client_index < client_count) : (client_index += 1) {
-        _ = try dec.readVarU64();
-        const item_count = try dec.readVarU64();
-        var item_index: usize = 0;
-        while (item_index < item_count) : (item_index += 1) {
-            _ = try dec.readVarU64();
-            const len_value = try dec.readVarU64();
-            const info = try dec.readByte();
-            if ((info & 1) != 0) _ = try sync.readId(&dec);
-            if ((info & 2) != 0) _ = try sync.readId(&dec);
-            const content_tag = try dec.readByte();
-            switch (content_tag) {
-                sync.content_string_tag => {
-                    const string_bytes = try dec.readBytes();
-                    const logical_len = try utf.countUnicodeLen(string_bytes);
-                    if (logical_len != len_value) return error.InvalidUpdate;
-                },
-                sync.content_format_tag => {
-                    if (len_value != 1) return error.InvalidUpdate;
-                    _ = try dec.readBytes();
-                    const value_is_null = (try dec.readByte()) != 0;
-                    if (!value_is_null) _ = try dec.readBytes();
-                },
-                else => return error.UnsupportedContent,
-            }
-        }
-    }
-
-    const delete_client_count = try dec.readVarU64();
-    var delete_client_index: usize = 0;
-    while (delete_client_index < delete_client_count) : (delete_client_index += 1) {
-        _ = try dec.readVarU64();
-        const delete_count = try dec.readVarU64();
-        var delete_index: usize = 0;
-        while (delete_index < delete_count) : (delete_index += 1) {
-            _ = try dec.readVarU64();
-            _ = try dec.readVarU64();
-        }
-    }
-    try dec.expectEnd();
 }
 
 //==============================================================================

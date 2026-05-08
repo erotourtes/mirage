@@ -9,6 +9,8 @@ pub const StoreError = error{
 };
 
 pub const ClientStructs = struct {
+    /// Item handles for one client, ordered by each item's starting clock.
+    /// Adjacent items must have contiguous clock ranges.
     items: std.ArrayList(item.ItemHandle) = .empty,
 
     pub fn deinit(self: *ClientStructs, allocator: std.mem.Allocator) void {

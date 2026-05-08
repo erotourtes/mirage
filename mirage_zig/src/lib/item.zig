@@ -41,6 +41,8 @@ pub const Item = struct {
     initial_right_origin_id: ?id.Id,
 
     /// The index of the left item in the linked list
+    /// Local nodes have different ItemHandles for the same item,
+    /// so we use `initial_left_origin_id` and `initial_right_origin_id` in sync updates
     left: ?ItemHandle,
     /// The index of the right item in the linked list
     right: ?ItemHandle,

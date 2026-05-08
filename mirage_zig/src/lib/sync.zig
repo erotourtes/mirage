@@ -94,33 +94,30 @@ pub fn readId(dec: *encoding.Decoder) Error!id.Id {
 fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const StateVector) Error!void {
     var changed_clients: usize = 0;
     for (view.store.clients.keys(), view.store.clients.values()) |client, client_structs| {
+        const structs = client_structs.items.items;
+        if (structs.len == 0) continue;
+
         const target_clock = target_state.get(client) orelse 0;
-        for (client_structs.items.items) |handle| {
-            const current = view.items[handle];
-            if (current.id.clock + current.getClockLen() > target_clock) {
-                changed_clients += 1;
-                break;
-            }
+        const last_handle = structs[structs.len - 1];
+        const last = view.items[last_handle];
+        if (last.id.clock + last.getClockLen() > target_clock) {
+            changed_clients += 1;
         }
     }
 
     try enc.writeVarU64(changed_clients);
     for (view.store.clients.keys(), view.store.clients.values()) |client, client_structs| {
         const target_clock = target_state.get(client) orelse 0;
-        var item_count: usize = 0;
-        for (client_structs.items.items) |handle| {
-            const current = view.items[handle];
-            if (current.id.clock + current.getClockLen() > target_clock) item_count += 1;
-        }
-        if (item_count == 0) continue;
+        const first_index = firstStructAfterClock(view.items, client_structs.items.items, target_clock) orelse continue;
+        const changed_items = client_structs.items.items[first_index..];
 
         try enc.writeVarU64(client);
-        try enc.writeVarU64(item_count);
-        for (client_structs.items.items) |handle| {
+        try enc.writeVarU64(changed_items.len);
+        for (changed_items) |handle| {
             const current = view.items[handle];
             const current_len = current.getClockLen();
-            if (current.id.clock + current_len <= target_clock) continue;
-            const offset = if (target_clock > current.id.clock) target_clock - current.id.clock else 0;
+            const is_target_contains_first_part = target_clock > current.id.clock;
+            const offset = if (is_target_contains_first_part) target_clock - current.id.clock else 0;
             const write_id: id.Id = .{
                 .client = current.id.client,
                 .clock = current.id.clock + offset,
@@ -128,8 +125,13 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
             const write_len = current_len - offset;
             try enc.writeVarU64(write_id.clock);
             try enc.writeVarU64(write_len);
+
+            // 0 = no left origin, no right origin
+            // 1 = has left origin
+            // 2 = has right origin
+            // 3 = has both
             var info: u8 = 0;
-            const left_origin: ?id.Id = if (offset > 0)
+            const left_origin: ?id.Id = if (is_target_contains_first_part)
                 .{ .client = current.id.client, .clock = write_id.clock - 1 }
             else
                 current.initial_left_origin_id;
@@ -159,10 +161,65 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
     }
 }
 
+fn firstStructAfterClock(
+    items: []const item_mod.Item,
+    handles: []const item_mod.ItemHandle,
+    target_clock: id.Clock,
+) ?usize {
+    var left: usize = 0;
+    var right: usize = handles.len;
+    while (left < right) {
+        const mid = left + (right - left) / 2;
+        const candidate = items[handles[mid]];
+        const candidate_end = candidate.id.clock + candidate.getClockLen();
+        if (candidate_end <= target_clock) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+    return if (left == handles.len) null else left;
+}
+
+test "findStructAfterClock returns correct index" {
+    const create_struct = struct {
+        fn create(client: id.ClientId, clock: id.Clock, len: id.Clock) item_mod.Item {
+            return .{
+                .id = .{ .client = client, .clock = clock },
+                .content = .{ .string = .{ .bytes_start = 0, .bytes_len = 0, .logical_len = len } },
+                .flags = item_mod.ItemFlags{
+                    .countable = true,
+                    .deleted = false,
+                },
+                .initial_left_origin_id = null,
+                .initial_right_origin_id = null,
+                .left = null,
+                .right = null,
+            };
+        }
+    }.create;
+    const items: []const item_mod.Item = &.{
+        create_struct(1, 0, 5),
+        create_struct(1, 5, 5),
+        create_struct(1, 10, 5),
+    };
+    const handles: []const item_mod.ItemHandle = &.{ 0, 1, 2 };
+
+    const expectEqual = std.testing.expectEqual;
+    try expectEqual(0, firstStructAfterClock(items, handles, 0) orelse unreachable);
+    try expectEqual(0, firstStructAfterClock(items, handles, 3) orelse unreachable);
+    try expectEqual(1, firstStructAfterClock(items, handles, 5) orelse unreachable);
+    try expectEqual(1, firstStructAfterClock(items, handles, 7) orelse unreachable);
+    try expectEqual(2, firstStructAfterClock(items, handles, 10) orelse unreachable);
+    try expectEqual(2, firstStructAfterClock(items, handles, 12) orelse unreachable);
+    try expectEqual(null, firstStructAfterClock(items, handles, 15));
+}
+
 fn writeDeleteSet(view: EncodeView, enc: *encoding.Encoder) Error!void {
     var ds: delete_set_mod.DeleteSet = .{};
     defer ds.deinit(view.allocator);
 
+    // Collect all deleted items
     for (view.store.clients.keys(), view.store.clients.values()) |client, client_structs| {
         var active_start: ?id.Clock = null;
         var active_len: id.Clock = 0;

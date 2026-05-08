@@ -1,6 +1,11 @@
 export type ClientId = bigint | number;
 export type Clock = bigint | number;
 
+export type WasmPtr = number;
+export type WasmSize = number;
+export type WasmBool = 0 | 1;
+export type MirageDocHandle = number;
+
 export type AttributeValue = string | null;
 
 export interface Attribute {
@@ -23,51 +28,66 @@ export type ErrorCode =
 export interface MirageWasmExports {
   memory: WebAssembly.Memory;
 
-  alloc(len: number): number;
-  free(ptr: number, len: number): void;
+  /**
+   * Allocates `len` bytes in wasm memory and returns a wasm32 pointer.
+   * Returns 0 on allocation failure.
+   */
+  alloc(len: WasmSize): WasmPtr;
+  free(ptr: WasmPtr, len: WasmSize): void;
 
-  doc_create(clientId: bigint, outDocPtr: number): ErrorCode;
-  doc_destroy(doc: number): ErrorCode;
+  /**
+   * Writes an opaque wasm32 document handle to `outDocPtr`.
+   */
+  doc_create(clientId: bigint, outDocPtr: WasmPtr): ErrorCode;
+  doc_destroy(doc: MirageDocHandle): ErrorCode;
 
-  text_len(doc: number, outLenPtr: number): ErrorCode;
-  text_insert(doc: number, index: bigint, ptr: number, len: number): ErrorCode;
+  /**
+   * Writes the current logical text length as a little-endian u64 to `outLenPtr`.
+   */
+  text_len(doc: MirageDocHandle, outLenPtr: WasmPtr): ErrorCode;
+  text_insert(doc: MirageDocHandle, index: bigint, ptr: WasmPtr, len: WasmSize): ErrorCode;
   text_insert_attr(
-    doc: number,
+    doc: MirageDocHandle,
     index: bigint,
-    textPtr: number,
-    textLen: number,
-    keyPtr: number,
-    keyLen: number,
-    valuePtr: number,
-    valueLen: number,
-    valueIsNull: 0 | 1,
+    textPtr: WasmPtr,
+    textLen: WasmSize,
+    keyPtr: WasmPtr,
+    keyLen: WasmSize,
+    valuePtr: WasmPtr,
+    valueLen: WasmSize,
+    valueIsNull: WasmBool,
   ): ErrorCode;
   text_format(
-    doc: number,
+    doc: MirageDocHandle,
     index: bigint,
     len: bigint,
-    keyPtr: number,
-    keyLen: number,
-    valuePtr: number,
-    valueLen: number,
-    valueIsNull: 0 | 1,
+    keyPtr: WasmPtr,
+    keyLen: WasmSize,
+    valuePtr: WasmPtr,
+    valueLen: WasmSize,
+    valueIsNull: WasmBool,
   ): ErrorCode;
-  text_delete(doc: number, index: bigint, len: bigint): ErrorCode;
+  text_delete(doc: MirageDocHandle, index: bigint, len: bigint): ErrorCode;
 
-  text_to_string(doc: number, outPtrPtr: number, outLenPtr: number): ErrorCode;
-  text_encode_state_vector(doc: number, outPtrPtr: number, outLenPtr: number): ErrorCode;
+  /**
+   * Owned-buffer functions write a wasm32 pointer to `outPtrPtr` and a wasm32
+   * `usize` byte length to `outLenPtr`. The caller owns the returned buffer and
+   * must release it with `free(ptr, len)`.
+   */
+  text_to_string(doc: MirageDocHandle, outPtrPtr: WasmPtr, outLenPtr: WasmPtr): ErrorCode;
+  text_encode_state_vector(doc: MirageDocHandle, outPtrPtr: WasmPtr, outLenPtr: WasmPtr): ErrorCode;
   text_encode_update(
-    doc: number,
-    statePtr: number,
-    stateLen: number,
-    outPtrPtr: number,
-    outLenPtr: number,
+    doc: MirageDocHandle,
+    statePtr: WasmPtr,
+    stateLen: WasmSize,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
   ): ErrorCode;
-  text_apply_update(doc: number, updatePtr: number, updateLen: number): ErrorCode;
+  text_apply_update(doc: MirageDocHandle, updatePtr: WasmPtr, updateLen: WasmSize): ErrorCode;
 }
 
 export interface MirageDocument {
-  readonly handle: number;
+  readonly handle: MirageDocHandle;
   readonly length: bigint;
 
   insert(index: Clock, text: string): void;

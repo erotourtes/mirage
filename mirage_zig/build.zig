@@ -93,9 +93,15 @@ fn addWasmModule(
         .root_module = wasm_root_module,
     });
     wasm_exe.entry = .disabled;
-    const install_wasm = b.addInstallArtifact(wasm_exe, .{});
+    const wasm_install_dir: std.Build.InstallDir = .{ .custom = "wasm" };
+    const install_wasm = b.addInstallArtifact(wasm_exe, .{
+        .dest_dir = .{ .override = wasm_install_dir },
+        .dest_sub_path = "mirage.wasm",
+    });
+    const install_types = b.addInstallFileWithDir(b.path("wasm/mirage.d.ts"), wasm_install_dir, "mirage.d.ts");
     const wasm_step = b.step("wasm", "Build the WebAssembly artifact");
     wasm_step.dependOn(&install_wasm.step);
+    wasm_step.dependOn(&install_types.step);
 }
 
 fn addTests(

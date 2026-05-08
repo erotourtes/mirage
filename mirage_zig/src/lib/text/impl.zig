@@ -148,7 +148,7 @@ pub const TextImpl = struct {
         if (format_len > self.length - index) return error.IndexOutOfBounds;
         if (format_len == 0 or attributes.len == 0) return;
 
-        const restore_attributes = try formatting.restoreAttributesAt(
+        const restore_attributes = try formatting.findRestoreAttr(
             self,
             self.allocator,
             index + format_len,

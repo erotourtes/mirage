@@ -2,6 +2,7 @@ const std = @import("std");
 const attrs = @import("attrs.zig");
 const item_mod = @import("item.zig");
 const text_mod = @import("text/impl.zig");
+const id = @import("id.zig");
 
 pub const OwnedAttribute = struct {
     attribute: attrs.Attribute,
@@ -46,19 +47,20 @@ pub fn cleanup(text: *text_mod.TextImpl) !void {
     }
 }
 
-pub fn restoreAttributesAt(
+///           01234
+/// [font:1] [Hello] [bold:null] [font:null]
+/// inserting font:2 at index 2 would return
+/// [font:1] as restore attribute
+pub fn findRestoreAttr(
     text: *const text_mod.TextImpl,
     allocator: std.mem.Allocator,
-    index: u64,
+    index: id.TextIndex,
     attributes: []const attrs.Attribute,
 ) ![]OwnedAttribute {
     if (attributes.len == 0) return &.{};
 
     var result = try allocator.alloc(OwnedAttribute, attributes.len);
-    errdefer {
-        for (result) |owned| owned.deinit(allocator);
-        allocator.free(result);
-    }
+    errdefer allocator.free(result);
 
     var initialized: usize = 0;
     errdefer {
@@ -66,6 +68,7 @@ pub fn restoreAttributesAt(
     }
 
     for (attributes, 0..) |attribute, attribute_index| {
+        // by default restore to null
         result[attribute_index] = .{
             .attribute = .{
                 .key = attribute.key,
@@ -73,7 +76,8 @@ pub fn restoreAttributesAt(
             },
         };
 
-        if (try activeValueAt(text, index, attribute.key)) |value| {
+        const before_our_attr_value = getActiveAttrForIndex(text, index, attribute.key);
+        if (before_our_attr_value) |value| {
             result[attribute_index].attribute.value = .{ .string = try allocator.dupe(u8, value) };
             result[attribute_index].owns_value = true;
         }
@@ -81,6 +85,22 @@ pub fn restoreAttributesAt(
     }
 
     return result;
+}
+
+test "findRestoreAttr returns correct restore attributes" {
+    const allocator = std.testing.allocator;
+    var text = text_mod.TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insertWithAttrs(0, "Hello", &.{.{ .key = "font", .value = .{ .string = "1" } }});
+
+    const restore_attrs = try findRestoreAttr(&text, allocator, 2, &.{
+        .{ .key = "font", .value = .{ .string = "2" } },
+    });
+    defer freeOwnedAttributes(allocator, restore_attrs);
+
+    try std.testing.expectEqual(1, restore_attrs.len);
+    try std.testing.expectEqualStrings("1", restore_attrs[0].attribute.value.string);
 }
 
 pub fn freeOwnedAttributes(allocator: std.mem.Allocator, attributes: []OwnedAttribute) void {
@@ -119,29 +139,52 @@ pub fn updateActiveAttrs(
     }
 }
 
-fn activeValueAt(text: *const text_mod.TextImpl, target_index: u64, key: []const u8) !?[]const u8 {
+///              12345               678...
+/// [bold:true] [Hello] [bold:null] [World]
+/// getActiveAttrForIndex(0) -> "true"
+fn getActiveAttrForIndex(text: *const text_mod.TextImpl, target_index: id.TextIndex, key: []const u8) ?[]const u8 {
     var active_value: ?[]const u8 = null;
     var cursor = text.start;
     var visible_index: u64 = 0;
     while (cursor) |handle| {
         const current = text.items.items[handle];
-        if (!current.flags.deleted) {
-            switch (current.content) {
-                .format => |format_slice| {
-                    if (std.mem.eql(u8, text.attributeKeyBytes(format_slice), key)) {
-                        active_value = if (format_slice.value_is_null) null else text.attributeValueBytes(format_slice);
-                    }
-                },
-                .string => if (current.flags.countable) {
-                    const current_len = current.getClockLen();
-                    if (visible_index + current_len > target_index) break;
-                    visible_index += current_len;
-                },
-            }
+        defer cursor = current.right;
+        if (current.flags.deleted) continue;
+
+        switch (current.content) {
+            .format => |format_slice| {
+                const current_key = text.attributeKeyBytes(format_slice);
+                const is_found_key = std.mem.eql(u8, current_key, key);
+                if (is_found_key) {
+                    active_value = if (format_slice.value_is_null) null else text.attributeValueBytes(format_slice);
+                }
+            },
+            .string => if (current.flags.countable) {
+                const current_len = current.getClockLen();
+                if (visible_index + current_len > target_index) break;
+                visible_index += current_len;
+            },
         }
-        cursor = current.right;
     }
     return active_value;
+}
+
+test "getActiveAttrForIndex returns the active attribute value for the given index" {
+    const allocator = std.testing.allocator;
+    var text = text_mod.TextImpl.init(allocator, 1);
+    defer text.deinit();
+
+    try text.insertWithAttrs(0, "H", &.{.{ .key = "bold", .value = .{ .string = "true" } }});
+    try text.insertWithAttrs(1, "i", &.{.{ .key = "bold", .value = .{ .string = "true" } }});
+    try text.insertWithAttrs(2, "!", &.{.{ .key = "bold", .value = .null }});
+
+    const attr0 = getActiveAttrForIndex(&text, 0, "bold") orelse unreachable;
+    const attr1 = getActiveAttrForIndex(&text, 1, "bold") orelse unreachable;
+    const attr2 = getActiveAttrForIndex(&text, 2, "bold");
+
+    try std.testing.expectEqualStrings("true", attr0);
+    try std.testing.expectEqualStrings("true", attr1);
+    try std.testing.expectEqual(attr2, null);
 }
 
 /// If the format_slice is applied right now,

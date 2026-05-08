@@ -73,6 +73,18 @@ pub const StructStore = struct {
         try structs.insert(allocator, insert_index, new_handle);
     }
 
+    pub fn removeStruct(
+        self: *StructStore,
+        items: []const item.Item,
+        handle: item.ItemHandle,
+    ) StoreError!void {
+        const current = items[handle];
+        const index = self.clients.getIndex(current.id.client) orelse return error.ClientNotFound;
+        var structs = &self.clients.values()[index].items;
+        const remove_index = try findHandleIndex(structs.items, handle);
+        _ = structs.orderedRemove(remove_index);
+    }
+
     pub fn findHandleById(
         self: *const StructStore,
         items: []const item.Item,

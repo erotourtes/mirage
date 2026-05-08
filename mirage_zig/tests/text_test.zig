@@ -38,6 +38,26 @@ test "insert into middle splits a string item" {
     try mirage.debug.checkIntegrity(doc.text());
 }
 
+test "compact joins safe adjacent string intervals" {
+    var doc = mirage.Doc.init(std.testing.allocator, 8);
+    defer doc.deinit();
+
+    try doc.text().insert(0, "hi");
+    try doc.text().insert(2, "!");
+
+    try std.testing.expectEqual(@as(mirage.Clock, 1), mirage.debug.itemLen(doc.text(), 1));
+
+    try doc.text().compact();
+
+    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    defer std.testing.allocator.free(rendered);
+    try std.testing.expectEqualStrings("hi!", rendered);
+    try std.testing.expectEqual(@as(mirage.Clock, 3), mirage.debug.itemLen(doc.text(), 0));
+    try std.testing.expectEqual(@as(mirage.ItemHandle, 0), try mirage.debug.findHandleById(doc.text(), .{ .client = 8, .clock = 2 }));
+    try std.testing.expectEqual(@as(mirage.Clock, 3), mirage.debug.clientState(doc.text(), 8));
+    try mirage.debug.checkIntegrity(doc.text());
+}
+
 test "delete inside one item keeps deleted item addressable" {
     var doc = mirage.Doc.init(std.testing.allocator, 9);
     defer doc.deinit();
@@ -252,7 +272,7 @@ test "rich text format items sync through updates" {
     try mirage.debug.checkIntegrity(b.text());
 }
 
-test "format cleanup deletes redundant markers" {
+test "compact deletes redundant format markers" {
     var doc = mirage.Doc.init(std.testing.allocator, 41);
     defer doc.deinit();
 
@@ -262,6 +282,7 @@ test "format cleanup deletes redundant markers" {
     try doc.text().format(0, 2, &.{
         .{ .key = "bold", .value = .{ .string = "true" } },
     });
+    try doc.text().compact();
 
     try std.testing.expectEqual(@as(usize, 1), mirage.debug.liveFormatMarkerCount(doc.text(), "bold", "true"));
 
@@ -324,7 +345,7 @@ test "delete across formatted region preserves surrounding format" {
     try mirage.debug.checkIntegrity(doc.text());
 }
 
-test "format cleanup removes markers around fully deleted content" {
+test "compact removes markers around fully deleted content" {
     var doc = mirage.Doc.init(std.testing.allocator, 46);
     defer doc.deinit();
 
@@ -333,6 +354,7 @@ test "format cleanup removes markers around fully deleted content" {
         .{ .key = "bold", .value = .{ .string = "true" } },
     });
     try doc.text().delete(0, 3);
+    try doc.text().compact();
 
     const rendered = try doc.text().toOwnedString(std.testing.allocator);
     defer std.testing.allocator.free(rendered);
@@ -342,7 +364,7 @@ test "format cleanup removes markers around fully deleted content" {
     try mirage.debug.checkIntegrity(doc.text());
 }
 
-test "format cleanup removes empty same-key toggles" {
+test "compact removes empty same-key toggles" {
     var doc = mirage.Doc.init(std.testing.allocator, 47);
     defer doc.deinit();
 
@@ -354,6 +376,7 @@ test "format cleanup removes empty same-key toggles" {
         .{ .key = "color", .value = .{ .string = "blue" } },
     });
     try doc.text().delete(1, 2);
+    try doc.text().compact();
 
     var delta = try doc.text().toDelta(std.testing.allocator);
     defer delta.deinit(std.testing.allocator);

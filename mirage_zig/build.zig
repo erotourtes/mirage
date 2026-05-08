@@ -83,6 +83,7 @@ fn addWasmModule(
         "text_insert_attr",
         "text_format",
         "text_delete",
+        "text_compact",
         "text_to_string",
         "text_encode_state_vector",
         "text_encode_update",

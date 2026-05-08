@@ -45,7 +45,12 @@ export interface MirageWasmExports {
    * Writes the current logical text length as a little-endian u64 to `outLenPtr`.
    */
   text_len(doc: MirageDocHandle, outLenPtr: WasmPtr): ErrorCode;
-  text_insert(doc: MirageDocHandle, index: bigint, ptr: WasmPtr, len: WasmSize): ErrorCode;
+  text_insert(
+    doc: MirageDocHandle,
+    index: bigint,
+    ptr: WasmPtr,
+    len: WasmSize,
+  ): ErrorCode;
   text_insert_attr(
     doc: MirageDocHandle,
     index: bigint,
@@ -68,14 +73,23 @@ export interface MirageWasmExports {
     valueIsNull: WasmBool,
   ): ErrorCode;
   text_delete(doc: MirageDocHandle, index: bigint, len: bigint): ErrorCode;
+  text_compact(doc: MirageDocHandle): ErrorCode;
 
   /**
    * Owned-buffer functions write a wasm32 pointer to `outPtrPtr` and a wasm32
    * `usize` byte length to `outLenPtr`. The caller owns the returned buffer and
    * must release it with `free(ptr, len)`.
    */
-  text_to_string(doc: MirageDocHandle, outPtrPtr: WasmPtr, outLenPtr: WasmPtr): ErrorCode;
-  text_encode_state_vector(doc: MirageDocHandle, outPtrPtr: WasmPtr, outLenPtr: WasmPtr): ErrorCode;
+  text_to_string(
+    doc: MirageDocHandle,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
+  text_encode_state_vector(
+    doc: MirageDocHandle,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
   text_encode_update(
     doc: MirageDocHandle,
     statePtr: WasmPtr,
@@ -83,9 +97,14 @@ export interface MirageWasmExports {
     outPtrPtr: WasmPtr,
     outLenPtr: WasmPtr,
   ): ErrorCode;
-  text_apply_update(doc: MirageDocHandle, updatePtr: WasmPtr, updateLen: WasmSize): ErrorCode;
+  text_apply_update(
+    doc: MirageDocHandle,
+    updatePtr: WasmPtr,
+    updateLen: WasmSize,
+  ): ErrorCode;
 }
 
+// TODO: move higher level api out of this module
 export interface MirageDocument {
   readonly handle: MirageDocHandle;
   readonly length: bigint;
@@ -94,6 +113,7 @@ export interface MirageDocument {
   insert(index: Clock, text: string, attribute: Attribute): void;
   format(index: Clock, length: Clock, attribute: Attribute): void;
   delete(index: Clock, length: Clock): void;
+  compact(): void;
 
   toString(): string;
   encodeStateVector(): Uint8Array;

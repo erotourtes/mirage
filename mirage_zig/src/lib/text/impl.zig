@@ -137,7 +137,6 @@ pub const TextImpl = struct {
             });
             pos = .{ .index = pos.index, .left = marker, .right = self.items.items[marker].right };
         }
-        try self.cleanupFormatting();
     }
 
     pub fn format(
@@ -168,7 +167,6 @@ pub const TextImpl = struct {
             const marker = try self.insertFormatAt(end_pos, owned_attribute.attribute);
             end_pos = .{ .index = end_pos.index, .left = marker, .right = self.items.items[marker].right };
         }
-        try self.cleanupFormatting();
     }
 
     /// Inserts a string into a `gap` defined by the position.
@@ -272,7 +270,12 @@ pub const TextImpl = struct {
             };
         }
         self.position_cursor = pos;
+    }
+
+    pub fn compact(self: *TextImpl) TextError!void {
         try self.cleanupFormatting();
+        try self.mergeAdjacentStringItems();
+        self.invalidatePositionCursor();
     }
 
     pub fn encodeStateVector(self: *const TextImpl, allocator: std.mem.Allocator) TextError![]u8 {
@@ -579,6 +582,61 @@ pub const TextImpl = struct {
 
     fn cleanupFormatting(self: *TextImpl) TextError!void {
         try formatting.cleanup(self);
+    }
+
+    fn mergeAdjacentStringItems(self: *TextImpl) TextError!void {
+        var cursor = self.start;
+        while (cursor) |left_handle| {
+            const right_handle = self.items.items[left_handle].right orelse break;
+            if (canMergeStringItems(self, left_handle, right_handle)) {
+                try self.mergeStringItems(left_handle, right_handle);
+                continue;
+            }
+            cursor = right_handle;
+        }
+    }
+
+    fn canMergeStringItems(self: *const TextImpl, left_handle: item_mod.ItemHandle, right_handle: item_mod.ItemHandle) bool {
+        const left = self.items.items[left_handle];
+        const right = self.items.items[right_handle];
+        if (left.id.client != right.id.client) return false;
+        if (left.id.clock + left.getClockLen() != right.id.clock) return false;
+        if (left.flags.countable != right.flags.countable or left.flags.deleted != right.flags.deleted) return false;
+        if (!id.checkIfIdEql(right.initial_left_origin_id, left.getLastId())) return false;
+        if (!id.checkIfIdEql(left.initial_right_origin_id, right.initial_right_origin_id)) return false;
+
+        const left_slice = switch (left.content) {
+            .string => |slice| slice,
+            .format => return false,
+        };
+        const right_slice = switch (right.content) {
+            .string => |slice| slice,
+            .format => return false,
+        };
+        return left_slice.bytes_start + left_slice.bytes_len == right_slice.bytes_start;
+    }
+
+    // `canMergeStringItems` should be checked before calling this function
+    fn mergeStringItems(self: *TextImpl, left_handle: item_mod.ItemHandle, right_handle: item_mod.ItemHandle) TextError!void {
+        const right = self.items.items[right_handle];
+        const right_slice = right.content.string;
+
+        self.items.items[left_handle].content.string.bytes_len += right_slice.bytes_len;
+        self.items.items[left_handle].content.string.logical_len += right_slice.logical_len;
+        self.items.items[left_handle].initial_right_origin_id = right.initial_right_origin_id;
+        self.items.items[left_handle].right = right.right;
+
+        if (right.right) |next_handle| {
+            self.items.items[next_handle].left = left_handle;
+        } else {
+            self.end = left_handle;
+        }
+
+        // TODO: this marks item as a dead slot
+        self.items.items[right_handle].flags.deleted = true;
+        self.items.items[right_handle].left = null;
+        self.items.items[right_handle].right = null;
+        try self.store.removeStruct(self.items.items, right_handle);
     }
 
     fn retryPendingUpdates(self: *TextImpl) TextError!void {

@@ -93,6 +93,12 @@ export fn text_delete(doc_handle: usize, index: u64, len: u64) u32 {
     return ok();
 }
 
+export fn text_compact(doc_handle: usize) u32 {
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    doc.text().compact() catch return fail(.operation_failed);
+    return ok();
+}
+
 export fn text_to_string(doc_handle: usize, out_ptr_addr: usize, out_len_addr: usize) u32 {
     clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
 

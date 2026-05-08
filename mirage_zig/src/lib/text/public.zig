@@ -77,6 +77,14 @@ pub const Text = struct {
         try self.impl.delete(index, delete_len);
     }
 
+    /// Prunes redundant formatting markers and joins safe adjacent text structs.
+    ///
+    /// Editing operations do not run this automatically; call it when a cleaner
+    /// internal structure is worth the extra work.
+    pub fn compact(self: *Text) TextError!void {
+        try self.impl.compact();
+    }
+
     /// Encodes this document's state vector.
     ///
     /// The returned byte slice is allocated with `allocator` and must be freed

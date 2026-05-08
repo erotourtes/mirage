@@ -18,11 +18,21 @@ pub const OwnedAttribute = struct {
     }
 };
 
-/// Walks through the whole linked list and
-/// marks redundant format items as deleted.
+const PendingFormat = struct {
+    key: []const u8,
+    handle: item_mod.ItemHandle,
+};
+
+/// Walks through the linked list and marks redundant format items as deleted.
+/// Format markers only matter once visible text appears after them. While no
+/// visible text has been seen, keep the last pending marker for each key and
+/// delete older same-key markers that get superseded.
 pub fn cleanup(text: *text_mod.TextImpl) !void {
     var active_attrs: std.ArrayList(attrs.Attribute) = .empty;
     defer active_attrs.deinit(text.allocator);
+
+    var pending_formats: std.ArrayList(PendingFormat) = .empty;
+    defer pending_formats.deinit(text.allocator);
 
     var cursor = text.start;
     while (cursor) |handle| {
@@ -32,19 +42,56 @@ pub fn cleanup(text: *text_mod.TextImpl) !void {
         if (is_deleted) continue;
 
         switch (text.items.items[handle].content) {
-            .string => {},
+            .string => if (text.items.items[handle].flags.countable) {
+                try commitPendingFormats(text, &active_attrs, &pending_formats);
+            },
             .format => |format_slice| {
-                const should_mark_as_deleted = checkIfFormatIsRedundant(text, active_attrs.items, format_slice) or
-                    !hasVisibleContentBeforeNextSameKey(text, handle, format_slice);
-                if (should_mark_as_deleted) {
-                    text.items.items[handle].flags.deleted = true;
-                    text.invalidatePositionCursor();
-                } else {
-                    try updateActiveAttrs(text, text.allocator, &active_attrs, format_slice);
+                const key = text.attributeKeyBytes(format_slice);
+                // same-key pending format already exists, and we didn't reach any visible text
+                if (findPendingFormatIndex(pending_formats.items, key)) |pending_index| {
+                    deleteFormatMarker(text, pending_formats.items[pending_index].handle);
+                    _ = pending_formats.orderedRemove(pending_index);
                 }
+
+                if (checkIfFormatIsRedundant(text, active_attrs.items, format_slice)) {
+                    deleteFormatMarker(text, handle);
+                    continue;
+                }
+                try pending_formats.append(text.allocator, .{
+                    .key = key,
+                    .handle = handle,
+                });
             },
         }
     }
+
+    for (pending_formats.items) |pending| {
+        deleteFormatMarker(text, pending.handle);
+    }
+}
+
+fn commitPendingFormats(
+    text: *text_mod.TextImpl,
+    active_attrs: *std.ArrayList(attrs.Attribute),
+    pending_formats: *std.ArrayList(PendingFormat),
+) !void {
+    for (pending_formats.items) |pending| {
+        const format_slice = text.items.items[pending.handle].content.format;
+        try updateActiveAttrs(text, text.allocator, active_attrs, format_slice);
+    }
+    pending_formats.clearRetainingCapacity();
+}
+
+fn findPendingFormatIndex(pending_formats: []const PendingFormat, key: []const u8) ?usize {
+    for (pending_formats, 0..) |pending, index| {
+        if (std.mem.eql(u8, pending.key, key)) return index;
+    }
+    return null;
+}
+
+fn deleteFormatMarker(text: *text_mod.TextImpl, handle: item_mod.ItemHandle) void {
+    text.items.items[handle].flags.deleted = true;
+    text.invalidatePositionCursor();
 }
 
 ///           01234
@@ -235,34 +282,6 @@ test "checkIfFormatIsRedundant returns true for redundant format" {
 
     const is_redundant = checkIfFormatIsRedundant(&text, active_attrs.items, format_slice);
     try std.testing.expect(is_redundant);
-}
-
-/// E.g check for 0 -> returns false
-///           0            1  2
-/// [bold:true] [bold:false] [A]
-fn hasVisibleContentBeforeNextSameKey(
-    text: *const text_mod.TextImpl,
-    handle: item_mod.ItemHandle,
-    format_slice: item_mod.AttributeSlice,
-) bool {
-    const key = text.attributeKeyBytes(format_slice);
-    var cursor = text.items.items[handle].right;
-    while (cursor) |current_handle| {
-        const current = text.items.items[current_handle];
-        defer cursor = current.right;
-
-        if (current.flags.deleted) continue;
-
-        switch (current.content) {
-            .string => if (current.flags.countable) return true,
-            .format => |next_format| {
-                const next_format_key = text.attributeKeyBytes(next_format);
-                const found_closing_format = std.mem.eql(u8, next_format_key, key);
-                if (found_closing_format) return false;
-            },
-        }
-    }
-    return false;
 }
 
 pub fn copyAttributes(allocator: std.mem.Allocator, source: []const attrs.Attribute) ![]attrs.Attribute {

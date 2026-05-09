@@ -62,7 +62,8 @@ ot-data-consistency-for-p2p:
     isbn: "1595932496"
   parent:
     type: Proceedings
-    title: Proceedings of the 2006 20th Anniversary Conference on Computer Supported
+    title:
+      Proceedings of the 2006 20th Anniversary Conference on Computer Supported
       Cooperative Work
     publisher:
       name: Association for Computing Machinery
@@ -113,7 +114,8 @@ crdt-yjs-paper:
     isbn: "9781450342766"
   parent:
     type: Proceedings
-    title: Proceedings of the 2016 ACM International Conference on Supporting Group
+    title:
+      Proceedings of the 2016 ACM International Conference on Supporting Group
       Work
     publisher:
       name: Association for Computing Machinery
@@ -291,6 +293,15 @@ crdt-automerge-text:
     value: https://automerge.org/blog/rich-text/
     date: 2026-05-04
 
+crdt-automerge-local-first:
+  type: Video
+  title: "Automerge: a new foundation for collaboration software"
+  runtime: 01:05:00
+  time-range: 00:20:30-00:22:30
+  url:
+    value: https://www.youtube.com/watch?v=Qytg0Ibet2E
+    date: 2026-05-09
+
 crdt-zed:
   type: Web
   title: How CRDTs make multiplayer text editing part of Zed's DNA
@@ -385,7 +396,7 @@ logical-clocks:
   title: "Distributed Systems 4.1: Logical time"
   runtime: 00:24:01
   url:
-    value: https://youtu.be/x-D8iFU1d-o?si=E8aK3IxsoQnDLXy5
+    value: https://www.youtube.com/watch?v=x-D8iFU1d-o
     date: 2026-05-05
 
 webassembly-binary-values:
@@ -394,3 +405,17 @@ webassembly-binary-values:
   url:
     value: https://webassembly.github.io/spec/core/binary/values.html
     date: 2026-05-06
+
+delta-text-format:
+  type: Web
+  title: Delta
+  url:
+    value: https://quilljs.com/docs/delta/
+    date: 2026-05-09
+
+uuid7:
+  type: Web
+  title: "UUIDv7: The Time-Sortable Identifier for Modern Databases"
+  url:
+    value: https://uuid7.com/
+    date: 2026-05-09

@@ -173,7 +173,7 @@ be lost:
 Thus, a single integer is not sufficient to represent concurrent increments.
 
 To solve this problem, a G-Counter stores a vector of per-replica counters,
-where each replica increments only its own component @crdt-basic-paper-2[p. 11].
+where each replica increments only its own component @crdt-basic-paper-2[p. 11]. <g-counter-example>
 - replica $a$: $[0, 0] arrow [1, 0]$
 - replica $b$: $[0, 0] arrow [0, 1]$
 - after synchronization, the states are merged componentwise using $max$:
@@ -320,7 +320,7 @@ Yjs is implemented in JavaScript and is designed to work in web browsers. Althou
     [Advantages],
     [Efficient text synchronization, compact updates, mature ecosystem, browser support, Rust/WASM implementation available],
     [General-purpose local-first document model, rich-text support through Peritext ideas, good for structured documents],
-    [Useful practical RGA-family implementation, good for explaining sequence CRDTs and block-wise storage],
+    [Less feature rich, so could be easier to understand the implementation],
 
     [Limitations],
     [Complex internal model; YATA/Yjs implementation details are harder to explain than simple academic CRDTs],
@@ -340,10 +340,69 @@ Yjs is implemented in JavaScript and is designed to work in web browsers. Althou
 
 = Implementation
 
-== Id <h2:id>
+This chapter describes the implementation of text CRDT.
+It is inspired by Yjs and the YATA family of sequence CRDTs
+@crdt-yjs-paper, but it is not a direct port of Yjs and does not try to be
+compatible with the Yjs update format. Instead, it takes the ideas for this project and applies them to a smaller document model.
 
-In distributed systems, physical time is not a reliable source of ordering due to clock skew and network delays. The solution is to use logical clocks @logical-clocks. This implementation uses Lamport clocks which allows to define total order ($prec$) of operations based on their logical timestamps and replica identifiers @lamport-time-clocks-ordering[pp. 560-562]. Formally
-this can be defined as follows:
+This narrower scope is intentional. Yjs is a mature general-purpose shared data
+structure library with support for many document types and many production edge
+cases. While the goal of this implementation is to build a compact,
+understandable CRDT core that is sufficient for a browser-based collaborative
+editor. The implementation therefore focuses on the mechanics
+needed for text collaboration rather than on reproducing the full Yjs ecosystem.
+
+At the public API level, a document exposes a text object that can:
+
+- insert valid UTF-8 text at a visible character index;
+- delete a visible range;
+- apply or clear formatting attributes over a range;
+- render the current visible text;
+- render attributed text as delta-style operations @delta-text-format;
+- encode a state vector describing what the replica already knows;
+- encode an update relative to another replica's state vector;
+- apply updates received from other replicas.
+
+The implementation does not require a central server to decide the final order
+of operations. A server may still be used as a transport relay, but the CRDT
+state itself is designed so that replicas can edit locally and exchange updates
+later. Updates are safe to receive more than once, and updates that arrive before their
+dependencies are kept temporarily and retried after later updates.
+
+Internally, the visible document is not stored as a single mutable string. It is
+stored as a doubly-linked sequence of CRDT items. Some items contain text, some contain
+formatting markers, and deleted content remains as tombstones so that later
+remote operations can still refer to stable identifiers.
+
+== Document Model
+
+The most important idea in the implementation is that the CRDT state and the
+visible text are not the same thing. The CRDT state stores the editing history
+needed for synchronization, while the visible text is derived from that state.
+
+The core unit of this state is an `Item`. An item may represent a fragment of
+text, a formatting marker, or deleted content. Text items contribute characters
+to the visible document. Formatting markers do not contribute characters and only change the active attributes for the following text. Deleted items also do not
+appear in the visible text, but they remain in the structure so that other
+replicas can still refer to their identifiers.
+
+For example, after deleting the middle of a word, the internal sequence may still contain the deleted fragment: `[text "h"] -> [deleted text "ell"] -> [text "o"]`. When rendering the document, the algorithm walks this sequence and emits only visible items - `"ho"`.
+
+Unlike a normal string editor, this representation introduces additional storage overhead, but it also enables merging and versioning at the data-structure level @crdt-automerge-local-first.
+
+The same sequence also stores rich-text formatting. A formatting operation is
+represented by inserting marker items into the sequence. During rendering, the
+implementation keeps track of the currently active formatting attributes and
+attaches them to following text items. This keeps plain text and formatting in
+one ordered CRDT structure.
+
+Thus, the internal sequence acts as the source of truth, while plain text and attributed text are derived views.
+
+== Item Identity
+
+A simple way to create unique identities without a central coordinator is to use UUIDs. UUIDv7 is especially attractive because it contains a time-ordered field derived from the Unix epoch timestamp, which makes identifiers approximately sortable by creation time @uuid7. However, assigning a full UUID to every item 
+would add 16 bytes of identifier metadata per item. Furthermore the timestamp is based on physical time, which is not a reliable source of causal ordering in distributed systems because of clock skew.
+Logical clocks are a common solution for ordering events in distributed systems @logical-clocks. Lamport clocks assign a logical timestamp to each event and can be extended with a replica identifier to obtain a deterministic total order ($prec$) of operations @lamport-time-clocks-ordering[pp. 560-562]. This order is defined as follows:
 
 $
   (a prec b) arrow.l.r.double.long (C(a) < C(b) or (C(a) = C(b) and r(a) < r(b)))
@@ -356,106 +415,34 @@ where $C(a)$ is the Lamport timestamp of operation $a$, and $r(a)$ is the unique
   caption: [Lamport clock updates across three replicas],
 ) <fig:lamport-clocks>
 
-Each replica on @fig:lamport-clocks increments its local clock before creating an event. When a message
-is received, the receiver sets its clock to the larger of its current local clock
-and the message timestamp, then increments it. For example, replica $Z$ receives
-$m_3$ with timestamp $4$ while its local clock is $2$, so the next timestamp is
-$max(2, 4) + 1 = 5$.
+In the standard Lamport-clock algorithm @fig:lamport-clocks, each replica increments its local clock before creating an event. When a message is received, the receiver sets its clock to the maximum of its current local clock and the message timestamp, then increments it. For example, replica $Z$ receives $m_3$ with timestamp $4$ while its local clock is $2$, so the next timestamp is $max(2, 4) + 1 = 5$.
 
 The same diagram also shows why Lamport timestamps cannot be used as a complete causality test. The events $x$ and $y$ have ordered timestamps, $C(x) = 1$ and $C(y) = 2$, but there is no chain of local steps or messages from $x$ to $y$. Therefore, $C(x) < C(y)$ does not prove that $x$ caused $y$.
 
-== Deletion
+This implementation uses a related idea, but not a full global Lamport clock. Each item is identified by a pair `Id`:
 
-Deletion does not
-remove an item from the CRDT structure, since it will be a non-monotonic update, and will break the ability to merge changes since other replicas may still need the item identifier to integrate concurrent operations.
+```zig
+pub const ClientId = u64;
+pub const Clock = u64;
+pub const Id = struct { client: ClientId, clock: Clock, };
+```
 
-Instead, the item is marked as deleted.
+`ClientId` identifies the replica that created the item, and
+`Clock` is a monotonically increasing counter in the `ClientId` history. This is similar to
+the #link(<g-counter-example>)[G-Counter example], where each replica advances only its
+own component, and synchronization combines knowledge about all clients.
 
-== Delete set
+A text item may cover more than one clock value. For example, if client `1`
+inserts `"hello"` into an empty document, the implementation can store it as one
+item with id `{1, 0}` and length `5`. This item owns the clock range
+`{1, [0..4]}`. The next item created by the same client starts at
+clock `5`. 
 
-The delete set is a compact summary of tombstones. During synchronization, the implementation sends
-these deleted items separately as ranges of Lamport clocks grouped by client.
+Therefore, the item's memory position in the local array (`ItemHandle`), is different from its stable identifier (`Id`). The handle is local implementation detail, while the identifier is stable across replicas. Synchronization is therefore based on stable `Id`s.
 
-#figure(
-  diagrams.delete-set-merge,
-  caption: [Compacting overlapping delete ranges],
-) <fig:delete-set>
-
-This means a deletion of a long contiguous text fragment can be represented by one range instead of many individual tombstones. For example, all the overlapping ranges in @fig:delete-set are compacted into a single range. The receiver then applies each range by marking the matching local items as deleted.
-
-
-== Encoding
-
-The encoder uses wasm binary encoding specification @webassembly-binary-values, where bytes encode themselves, and integers are encoded using variable-length encoding LEB128. For example, numbers $[0, 127]$ are represented as a single byte, $[128, 16383]$ are represented as two bytes, and so on.
-
-
-== Text Representation
-
-The core building block of this CRDT is `Item`. Each `Item` has an id @h2:id; a reference to the previous and next items that define the document order; A content which is either a `TextSlice` or `AttributeSlice` and some other metadata.
-
-The structure that organizes all the items is `TextImpl`. It stores all the items in an 
-array list `items`. The array list is just a container for all the items and the order of items does not define the document order.
-
-The similar idea is used for string values such as text and attribute values. They are stored in the `bytes` buffer which `Item.content` references by offset and length.
-
-== Local insertion
-
-Local insertion starts by translating a visible text index into a linked-list
-gap. The `findPosition` function walks only visible string items; deleted items
-and formatting markers are skipped for visible indexing. If the insertion point
-falls inside a string item, the item is split first, so the new item can be
-linked into a clean gap.
-
-Consider three local operations on an empty document:
-- `insert(0, "Hello")`
-- `insert(5, " world")`
-- `insert(5, ",")`
-
-#figure(
-  diagrams.local-insert-state,
-  caption: [Local insertion state after inserting a comma],
-) <fig:local-insert>
-
-In @fig:local-insert, the comma is appended as handle `h2`, so it appears after
-`h0` and `h1` in the `items` array and receives the next local id `{1,11}`.
-However, document order is not defined by the array order. The call to
-`linkInserted` rewires `left` and `right`: `h0.right = h2`, `h2.right = h1`, and
-`h1.left = h2`. Therefore the visible document is read as `h0 -> h2 -> h1`,
-which produces `"Hello, world"`. The byte buffer also remains append-only:
-`"Hello"`, `" world"`, and `","` are stored in insertion order, while items
-refer to their byte slices by offset and length.
-
-== Attributes
-
-Attributes are represented as non-countable format items inside the same linked
-list. A format item does not contain visible text. Instead, it changes the
-active attribute state for the following string items until another format item
-with the same key changes or clears that value.
-
-For example, formatting `world` in `"Hello, world"` with `bold=true` first
-requires a clean boundary before `world`. Since the existing item contains
-`" world"`, `findPosition` splits it into `" "` and `"world"`. Then `format`
-inserts one marker before `world` with `bold=true`, and one marker after it with
-`bold=null` to restore the previous state.
-
-#figure(
-  diagrams.attribute-markers,
-  caption: [Attribute markers in the item linked list],
-) <fig:attribute-markers>
-
-This representation keeps text and formatting in one CRDT sequence. Rendering or
-conversion to delta walks the linked list from `start`, maintains the currently
-active attributes, and emits only non-deleted string items. The formatting
-markers affect the output attributes, but do not increase the visible document
-length.
-
-
-== Limitations
-
-- Large files
-  - Errors
-  - State corruption
-- Garbage collection
-  - marker handling
+The implementation assumes that active replicas use unique client ids and does
+not provide client-id generation. In a real
+application, client ids may come from account identity, or another application-level mechanism. If two active replicas use the same `ClientId`, their clock ranges
+can overlap, and the CRDT can no longer distinguish their histories correctly.
 
 #bibliography("./bib.yml")

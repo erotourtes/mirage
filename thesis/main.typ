@@ -438,11 +438,36 @@ item with id `{1, 0}` and length `5`. This item owns the clock range
 `{1, [0..4]}`. The next item created by the same client starts at
 clock `5`. 
 
-Therefore, the item's memory position in the local array (`ItemHandle`), is different from its stable identifier (`Id`). The handle is local implementation detail, while the identifier is stable across replicas. Synchronization is therefore based on stable `Id`s.
-
 The implementation assumes that active replicas use unique client ids and does
 not provide client-id generation. In a real
 application, client ids may come from account identity, or another application-level mechanism. If two active replicas use the same `ClientId`, their clock ranges
 can overlap, and the CRDT can no longer distinguish their histories correctly.
+
+== Internal Representation
+
+The main data structure that stores the document is `TextImpl`. It contains the CRDT sequence, the visible text length, the byte storage, and the per-client clock index required for synchronization.
+
+The document order is represented as a doubly linked list of items. Each item stores local `left` and `right` handles, while `TextImpl` stores the `start` and `end` handles of the sequence. This linked order is used when rendering the document.
+
+Items are not stored in linked-list order in memory. Instead, they are stored in an array, and an `ItemHandle` is an index into this array. This keeps links compact: a handle is a `u32`, not a pointer and not a replica-wide identifier.
+
+Therefore, the implementation uses two different ways to refer to an item:
+
+- `ItemHandle` is local to one replica and is used internally for links between items;
+- `Id` is stable across replicas and is used in synchronization messages.
+
+This distinction is necessary because two replicas may store the same logical item at different array positions. As a result, updates that describe where an item was inserted cannot use local handles; they must refer to the stable ids of neighboring items.
+
+Item content is also stored compactly. Text and attribute strings are kept in a byte buffer owned by `TextImpl`. An item does not own a separate string; instead, it stores a range into this buffer. A text slice stores both the byte range and the logical length in Unicode scalar values. This allows the implementation to store UTF-8 text while exposing indexes in visible character units.
+
+For synchronization, the implementation uses `StructStore`. It groups item handles by the client that created them and keeps each client's items ordered by clock. For each client, clock ranges must be contiguous. This store is used to answer several synchronization-related questions:
+
+- what clock the next local item should use;
+- whether an item id is already known;
+- which local handle contains a given `{client, clock}` id;
+- what state vector should be sent to another replica;
+- which items are missing from another replica's state vector.
+
+Overall, the internal representation combines three views of the same state: the linked list defines document order, the item array provides compact local storage, and the struct store indexes items by client and clock for synchronization.
 
 #bibliography("./bib.yml")

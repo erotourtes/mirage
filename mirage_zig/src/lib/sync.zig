@@ -34,6 +34,7 @@ pub const ReadUpdateError = Error || error{
     InvalidHandle,
     ItemTooLarge,
     MissingDependency,
+    PendingUpdatesTooLarge,
 };
 
 pub const StateVector = std.array_hash_map.Auto(id.ClientId, id.Clock);

@@ -614,6 +614,33 @@ test "delete-only update waits for missing inserted structs" {
     try mirage.debug.checkIntegrity(b.text());
 }
 
+test "pending update storage has a byte limit" {
+    var a = mirage.Doc.init(std.testing.allocator, 63);
+    defer a.deinit();
+    var b = mirage.Doc.init(std.testing.allocator, 64);
+    defer b.deinit();
+
+    try a.text().insert(0, "hello");
+    const after_insert_state = try a.text().encodeStateVector(std.testing.allocator);
+    defer std.testing.allocator.free(after_insert_state);
+
+    try a.text().delete(1, 3);
+    const delete_only_update = try a.text().encodeStateAsUpdate(std.testing.allocator, after_insert_state);
+    defer std.testing.allocator.free(delete_only_update);
+
+    var accepted: usize = 0;
+    while (true) {
+        b.text().applyUpdate(delete_only_update) catch |err| {
+            try std.testing.expectEqual(error.PendingUpdatesTooLarge, err);
+            break;
+        };
+        accepted += 1;
+    }
+
+    try std.testing.expect(accepted > 0);
+    try mirage.debug.checkIntegrity(b.text());
+}
+
 test "state-vector diff can start inside a string chunk" {
     var a = mirage.Doc.init(std.testing.allocator, 71);
     defer a.deinit();

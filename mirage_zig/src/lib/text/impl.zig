@@ -22,6 +22,7 @@ pub const TextError = error{
     UnsupportedUpdateVersion,
     VarIntOverflow,
     TrailingBytes,
+    PendingUpdatesTooLarge,
 } || std.mem.Allocator.Error || store_mod.StoreError;
 
 const Position = struct {
@@ -29,6 +30,8 @@ const Position = struct {
     left: ?item_mod.ItemHandle,
     right: ?item_mod.ItemHandle,
 };
+
+const max_pending_update_bytes: usize = 16 * 1024 * 1024;
 
 pub const TextImpl = struct {
     allocator: std.mem.Allocator,
@@ -72,7 +75,10 @@ pub const TextImpl = struct {
 
     /// Updates that arrived before their dependencies.
     /// They can't be applied yet
+    /// TODO: store the missing dependency per pending update and retry only
+    /// updates waiting on clients whose state advanced.
     pending_updates: std.ArrayList([]u8) = .empty,
+    pending_update_bytes: usize = 0,
     position_cursor: ?Position = null,
 
     pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) TextImpl {
@@ -293,9 +299,13 @@ pub const TextImpl = struct {
     pub fn applyUpdate(self: *TextImpl, update: []const u8) TextError!void {
         self.applyUpdateOnce(update) catch |err| switch (err) {
             error.MissingDependency => {
+                if (update.len > max_pending_update_bytes - self.pending_update_bytes) {
+                    return error.PendingUpdatesTooLarge;
+                }
                 const copy = try self.allocator.dupe(u8, update);
                 errdefer self.allocator.free(copy);
                 try self.pending_updates.append(self.allocator, copy);
+                self.pending_update_bytes += copy.len;
                 return;
             },
             else => return err,
@@ -651,6 +661,7 @@ pub const TextImpl = struct {
                 else => return err,
             };
             const removed = self.pending_updates.orderedRemove(index);
+            self.pending_update_bytes -= removed.len;
             self.allocator.free(removed);
             index = 0;
         }

@@ -400,6 +400,7 @@ Thus, the internal sequence acts as the source of truth, while plain text and at
 
 == Item Identity
 
+Each item needs to have a global unique identifier.
 A simple way to create unique identities without a central coordinator is to use UUIDs. UUIDv7 is especially attractive because it contains a time-ordered field derived from the Unix epoch timestamp, which makes identifiers approximately sortable by creation time @uuid7. However, assigning a full UUID to every item 
 would add 16 bytes of identifier metadata per item. Furthermore the timestamp is based on physical time, which is not a reliable source of causal ordering in distributed systems because of clock skew.
 Logical clocks are a common solution for ordering events in distributed systems @logical-clocks. Lamport clocks assign a logical timestamp to each event and can be extended with a replica identifier to obtain a deterministic total order ($prec$) of operations @lamport-time-clocks-ordering[pp. 560-562]. This order is defined as follows:
@@ -469,5 +470,181 @@ For synchronization, the implementation uses `StructStore`. It groups item handl
 - which items are missing from another replica's state vector.
 
 Overall, the internal representation combines three views of the same state: the linked list defines document order, the item array provides compact local storage, and the struct store indexes items by client and clock for synchronization.
+
+== Local Editing
+
+Local editing operations are applied immediately on the local replica. The CRDT metadata is created together with the local change, so the operation can later be encoded and sent to other replicas.
+
+=== Finding Positions
+
+The public editing API uses visible text indexes. These indexes count Unicode scalar values in the rendered document, not bytes and not internal items. Therefore, deleted items and formatting markers must be ignored when translating a public index into an internal position.
+
+For example, if the internal sequence is `[text "h"] -> [deleted text "ell"] -> [text "o"]`, then visible index `1` refers to the position between `"h"` and `"o"`, even though a deleted item exists between them internally.
+
+A position is represented as a gap between two item handles: the item on the left and the item on the right. If the requested index falls in the middle of a text item, the item is split first. For example, inserting at index `2` inside `[text "hello"]` splits the item into `[text "he"]` and `[text "llo"]`, creating a clean insertion gap between them.
+
+The new item can then be linked into this gap. Splitting does not copy the string bytes; it only adjusts the slice metadata of the existing item and creates a second item pointing into the same byte buffer. The split is performed on UTF-8 scalar boundaries, so public character indexes remain consistent with the internal byte representation.
+
+=== Insertion
+
+A plain text insertion follows a small sequence of steps:
+
+- validate that the index is inside the visible document;
+- validate the inserted bytes as UTF-8 and compute their Unicode scalar length;
+- find the linked-list gap corresponding to the visible index;
+- append the inserted bytes to the byte buffer;
+- create a new text item with the next `{client, clock}` id;
+- store the stable ids of the neighboring items as the item's origins;
+- add the item to the struct store;
+- link the item into the document order.
+
+The important point is that insertion does not rewrite the whole document. It creates a new item and places it into the sequence.
+
+Consider these operations on an empty document:
+
+- `insert(0, "Hello")`
+- `insert(5, " world")`
+- `insert(5, ",")`
+
+#figure(
+  diagrams.local-insert-state,
+  caption: [Local insertion state after inserting a comma],
+) <fig:local-insert>
+
+In @fig:local-insert, the comma item is appended as handle `h2`, so it appears after `h0` and `h1` in the item array. However, the visible document is not read in array order. It is read by following the linked-list order, which is `h0 -> h2 -> h1` and renders as `"Hello, world"`.
+
+When an item is created, it also records origin ids. The left origin is the last id covered by the item on the left, and the right origin is the first id of the item on the right. These origins allow another replica to insert the same item into the corresponding logical gap, even if that replica uses different local handles.
+
+=== Deletion
+
+Deletion also starts from visible indexes. The implementation translates the requested visible range into internal item boundaries, splits boundary text items when necessary, and then marks the affected visible text items as deleted.
+
+For example, deleting `"ell"` from `"hello"` can produce the internal sequence `[text "h"] -> [deleted text "ell"] -> [text "o"]`.
+
+The visible length decreases, but the deleted item remains addressable by its stable id range. This is necessary because a remote update may still refer to an item that has already been deleted locally.
+
+== Remote Integration
+
+When a replica receives an update from another replica, it does not apply the operation by visible index. Visible indexes are local and temporary: while replicas are missing each other's updates, the same index may refer to different internal positions. Therefore, remote integration is based on stable item ids and origin ids.
+
+A remote item contains:
+
+- its own `{client, clock}` id and length;
+- the stable id of the item that was on its left when it was created;
+- the stable id of the item that was on its right when it was created;
+- its content, either text or a formatting marker.
+
+The left and right ids are called origins. They describe the logical gap where the item was inserted. Local insertion records these origins because local handles are meaningful only inside one replica, while remote replicas need stable ids to reconstruct the same insertion context.
+
+For example, if a comma is inserted between `"Hello"` and `" world"`, the remote update does not say “insert after handle `h0`”, because `h0` exists only on the sender. Instead, the update says that the new item was inserted after the last id of `"Hello"` and before the first id of `" world"`. The receiver uses its own struct store to find the local handles that contain these ids, splits items at the required clock boundaries when necessary, and links the remote item into the resulting gap.
+
+Before integrating a remote item, the implementation checks whether it is ready to be applied. If the item range is already known, the item is ignored. If the item starts after the next expected clock for that client, or if one of its origins is still missing, the item cannot be integrated yet. In that case, the update is kept as pending and retried after later successful integrations. This allows messages to be delivered out of order without requiring the transport layer to enforce a single global order.
+
+Remote operations are idempotent. Reintegrating an already known item has no effect, and applying the same deletion again only keeps the item deleted. This makes duplicate message delivery safe.
+
+=== Concurrent Inserts
+
+The most important conflict case occurs when two replicas insert into the same logical gap concurrently. For example, two replicas may both insert at the beginning of an empty document:
+
+
+```text
+replica A inserts "X"
+replica B inserts "Y"
+```
+
+Both insertions have no left origin and no right origin, so they target the same gap. If each replica inserted remote items only according to message arrival order, the final document order could differ between replicas, which would break convergence.
+
+To avoid this, the implementation uses a deterministic ordering rule defined at YATA paper @crdt-yjs-paper. Direct
+siblings inserted after the same left origin are ordered by `ClientId` as a tiebreaker. More
+complex nested conflicts are resolved by scanning the existing items in the
+origin gap and choosing the same conflict-free left neighbor on every replica. The goal is not to determine which user edited first, because concurrent operations have no reliable physical order. The goal is to ensure that every replica chooses the same order from the same set of items.
+
+As a result, if all replicas receive the same concurrent insertions, they will
+eventually converge, even if the updates arrive
+in different orders.
+
+=== Remote Deletions
+
+Remote deletions use the stable id range produced by the original local deletion, not a visible index range. A delete message contains a client id, a starting clock, and a length, which identify the historical items that must be marked as deleted.
+
+On the receiving replica, this range is resolved through the struct store. If the referenced inserted items are not known yet, the deletion cannot be applied immediately and is kept pending. Once the items are available, the receiver splits boundary items if necessary and marks the corresponding range as deleted.
+
+This makes remote deletion independent of the receiver's current visible text. Even if replicas temporarily have different document contents or item handles, the same id range still refers to the same historical content.
+
+== Synchronization
+
+Synchronization is separated from the transport layer. The CRDT does not care
+whether update bytes are sent through WebRTC, WebSocket, local storage, or a
+server acting only as a relay. The synchronization API only needs two byte
+messages: a state vector and an update.
+
+=== State Vectors
+
+A state vector is a compact summary of what a replica already knows. It stores,
+for each client, the next clock that this replica expects from that client. For
+example, if a replica has items from client `7` covering clocks `0..12`, then
+its state vector contains the next item it expects: `7 -> 13`
+
+This means that clocks below `13` from client `7` are already known, and clock
+`13` is the next missing position in that client's history.
+
+State vectors are small because they depend on the number of clients, not on
+the size of the document. They are also closely connected to the `StructStore`:
+for each client, the store can compute the next expected clock from the last
+known item range.
+
+=== Updates
+
+An update is encoded relative to a target state vector. If no target state
+vector is provided, the implementation encodes the whole known document state.
+If a target state vector is provided, the implementation sends only the item
+ranges that the target is missing.
+
+For every client, the encoder finds the first item whose clock range is not
+fully covered by the target state vector. If the target already has the first
+part of a text item, the update can start in the middle of that item and send
+only the suffix. This works because a text item owns a contiguous clock range
+and stores its logical length.
+
+#figure(
+  diagrams.encoding-protocol,
+  caption: [Synchronization message structure],
+) <fig:encoding-protocol>
+
+As shown in @fig:encoding-protocol, an update has a small envelope followed by
+changed item blocks and a delete set. The current binary format starts with the
+magic bytes `"MYPEACE"` and version `1`. Integer values are encoded as unsigned
+LEB128 varints which follows the wasm binary encoding standard @webassembly-binary-values. The changed items are grouped by
+client, and item fields are written in columns rather than as independent
+records. This keeps common repeated information, such as content tags or origin
+kinds, compact.
+
+The update also includes deletion information as clock ranges grouped by client.
+Sending deletion ranges separately is useful because deletion does not create a
+new visible text item; it changes the deleted flag of existing historical
+items. Applying the same delete range more than once is safe, so deletion
+propagation remains idempotent.
+
+This section intentionally does not describe the complete byte layout. The
+important design point is that synchronization is based on stable item ids,
+state vectors, and idempotent updates rather than on visible indexes or a
+central operation log.
+
+=== Out-of-Order Delivery
+
+Updates may arrive before their dependencies. For example, a replica may receive
+a deletion for a text range before it has received the insertion that created
+that range. Similarly, a remote item may refer to left or right origins that are
+not known locally yet.
+
+When this happens, the implementation does not discard the update. It stores the
+update in a bounded pending-update buffer. After any later update is integrated
+successfully, the pending updates are retried. Once their dependencies are
+available, they can be applied normally.
+
+This means that the transport layer does not need to provide causal delivery.
+Messages may be delayed, duplicated, or delivered in a different order from the
+one in which they were created. As long as all replicas eventually receive the
+same set of updates, the CRDT state can still converge.
 
 #bibliography("./bib.yml")

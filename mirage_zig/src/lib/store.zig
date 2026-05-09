@@ -36,6 +36,7 @@ pub const StructStore = struct {
         const structs = self.clients.values()[index].items.items;
         if (structs.len == 0) return 0;
         const last = items[structs[structs.len - 1]];
+        // this ensures that that for items, (2, len 2) -> [2..3] we return 4
         return last.id.clock + last.getClockLen();
     }
 

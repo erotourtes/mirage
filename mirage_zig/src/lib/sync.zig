@@ -9,14 +9,23 @@ const attrs = @import("attrs.zig");
 
 pub const update_magic = "MYPEACE";
 pub const update_version: u8 = 1;
-pub const content_string_tag: u8 = 1;
-pub const content_format_tag: u8 = 2;
-const byte_column_raw: u8 = 0;
-const byte_column_rle: u8 = 1;
-const origin_null: u8 = 0;
-const origin_same_client_previous_clock: u8 = 1;
-const origin_same_client_clock: u8 = 2;
-const origin_full_id: u8 = 3;
+
+const ContentTag = enum(u8) {
+    string = 1,
+    format = 2,
+};
+
+const ByteColumnCodec = enum(u8) {
+    raw = 0,
+    rle = 1,
+};
+
+const OriginKind = enum(u8) {
+    null = 0,
+    same_client_previous_clock = 1,
+    same_client_clock = 2,
+    full_id = 3,
+};
 
 pub const Error = error{
     InvalidUtf8,
@@ -211,8 +220,10 @@ fn readClientBlock(
         const left_origin = try readOrigin(&left_origin_kinds, &left_origin_dec, client, clock);
         const right_origin = try readOrigin(&right_origin_kinds, &right_origin_dec, client, clock);
 
-        const content: DecodedContent = switch (try content_tags.read()) {
-            content_string_tag => blk: {
+        const content_tag = std.enums.fromInt(ContentTag, try content_tags.read()) orelse
+            return error.UnsupportedContent;
+        const content: DecodedContent = switch (content_tag) {
+            .string => blk: {
                 const byte_len = try readColumnLen(&string_lens_dec);
                 if (string_byte_offset + byte_len > string_bytes.len) return error.InvalidUpdate;
                 const bytes = string_bytes[string_byte_offset..][0..byte_len];
@@ -222,7 +233,7 @@ fn readClientBlock(
                 if (logical_len != len_value) return error.InvalidUpdate;
                 break :blk .{ .string = bytes };
             },
-            content_format_tag => blk: {
+            .format => blk: {
                 if (len_value != 1) return error.InvalidUpdate;
 
                 const key_len = try readColumnLen(&format_key_lens_dec);
@@ -243,7 +254,6 @@ fn readClientBlock(
                 };
                 break :blk .{ .format = .{ .key = key, .value = value } };
             },
-            else => return error.UnsupportedContent,
         };
 
         try callbacks.item(callbacks.context, .{
@@ -280,14 +290,16 @@ const ByteColumnDecoder = struct {
     run_remaining: u64 = 0,
 
     fn read(self: *ByteColumnDecoder) Error!u8 {
-        return switch (self.codec) {
-            byte_column_raw => blk: {
+        const codec = std.enums.fromInt(ByteColumnCodec, self.codec) orelse
+            return error.InvalidUpdate;
+        return switch (codec) {
+            .raw => blk: {
                 if (self.raw_index >= self.raw.len) return error.InvalidUpdate;
                 const value = self.raw[self.raw_index];
                 self.raw_index += 1;
                 break :blk value;
             },
-            byte_column_rle => blk: {
+            .rle => blk: {
                 if (self.run_remaining == 0) {
                     self.run_remaining = try self.rle_dec.readVarU64();
                     if (self.run_remaining == 0) return error.InvalidUpdate;
@@ -296,18 +308,18 @@ const ByteColumnDecoder = struct {
                 self.run_remaining -= 1;
                 break :blk self.run_value;
             },
-            else => error.InvalidUpdate,
         };
     }
 
     fn expectEnd(self: *ByteColumnDecoder) Error!void {
-        switch (self.codec) {
-            byte_column_raw => if (self.raw_index != self.raw.len) return error.InvalidUpdate,
-            byte_column_rle => {
+        const codec = std.enums.fromInt(ByteColumnCodec, self.codec) orelse
+            return error.InvalidUpdate;
+        switch (codec) {
+            .raw => if (self.raw_index != self.raw.len) return error.InvalidUpdate,
+            .rle => {
                 if (self.run_remaining != 0) return error.InvalidUpdate;
                 try self.rle_dec.expectEnd();
             },
-            else => return error.InvalidUpdate,
         }
     }
 };
@@ -328,15 +340,16 @@ fn readOrigin(
     client: id.ClientId,
     clock: id.Clock,
 ) Error!?id.Id {
-    return switch (try kinds.read()) {
-        origin_null => null,
-        origin_same_client_previous_clock => if (clock == 0)
+    const kind = std.enums.fromInt(OriginKind, try kinds.read()) orelse
+        return error.InvalidUpdate;
+    return switch (kind) {
+        .null => null,
+        .same_client_previous_clock => if (clock == 0)
             error.InvalidUpdate
         else
             .{ .client = client, .clock = clock - 1 },
-        origin_same_client_clock => .{ .client = client, .clock = try values.readVarU64() },
-        origin_full_id => try readId(values),
-        else => error.InvalidUpdate,
+        .same_client_clock => .{ .client = client, .clock = try values.readVarU64() },
+        .full_id => try readId(values),
     };
 }
 
@@ -363,7 +376,9 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
     try enc.writeVarU64(changed_clients);
     for (view.store.clients.keys(), view.store.clients.values()) |client, client_structs| {
         const target_clock = target_state.get(client) orelse 0;
-        const first_index = firstStructAfterClock(view.items, client_structs.items.items, target_clock) orelse continue;
+        const first_index = firstStructAfterClock(view.items, client_structs.items.items, target_clock)
+            // skip clients that have no changes
+            orelse continue;
         const changed_items = client_structs.items.items[first_index..];
 
         try enc.writeVarU64(client);
@@ -379,9 +394,14 @@ fn writeClientColumns(
     changed_items: []const item_mod.ItemHandle,
 ) Error!void {
     const first = view.items[changed_items[0]];
-    const first_clock = if (target_clock > first.id.clock) target_clock else first.id.clock;
+    const first_clock = brk: {
+        std.debug.assert(first.id.clock <= target_clock);
+        std.debug.assert(target_clock < first.id.clock + first.getClockLen());
+        break :brk target_clock;
+    };
     try enc.writeVarU64(first_clock);
 
+    // Clock len of written item
     var lens = encoding.Encoder.init(view.allocator);
     defer lens.deinit();
     var left_origin_kinds: std.ArrayList(u8) = .empty;
@@ -412,13 +432,13 @@ fn writeClientColumns(
     for (changed_items) |handle| {
         const current = view.items[handle];
         const current_len = current.getClockLen();
-        const is_target_contains_first_part = target_clock > current.id.clock;
-        const offset = if (is_target_contains_first_part) target_clock - current.id.clock else 0;
+        const is_target_starts_inside_current = target_clock > current.id.clock;
+        const offset = if (is_target_starts_inside_current) target_clock - current.id.clock else 0;
         const write_clock = current.id.clock + offset;
         const write_len = current_len - offset;
         try lens.writeVarU64(write_len);
 
-        const left_origin: ?id.Id = if (is_target_contains_first_part)
+        const left_origin: ?id.Id = if (is_target_starts_inside_current)
             .{ .client = current.id.client, .clock = write_clock - 1 }
         else
             current.initial_left_origin_id;
@@ -427,7 +447,8 @@ fn writeClientColumns(
 
         switch (current.content) {
             .string => |slice| {
-                try content_tags.append(view.allocator, content_string_tag);
+                const kind: u8 = @intFromEnum(ContentTag.string);
+                try content_tags.append(view.allocator, kind);
                 const item_bytes = sliceBytes(view, slice);
                 const byte_offset = try utf.getByteOffsetForCharIndex(item_bytes, offset);
                 const bytes = item_bytes[byte_offset..];
@@ -435,8 +456,10 @@ fn writeClientColumns(
                 try string_bytes.appendSlice(view.allocator, bytes);
             },
             .format => |format_slice| {
+                // format items are 1 clock long. they can't be partially included
                 if (offset != 0) return error.InvalidUpdate;
-                try content_tags.append(view.allocator, content_format_tag);
+                const kind: u8 = @intFromEnum(ContentTag.format);
+                try content_tags.append(view.allocator, kind);
 
                 const key = attributeKeyBytes(view, format_slice);
                 try format_key_lens.writeVarU64(key.len);
@@ -466,6 +489,7 @@ fn writeClientColumns(
     try enc.writeBytes(format_value_bytes.items);
 }
 
+/// Decides if it's better to use RLE or raw encoding
 fn writeByteColumn(enc: *encoding.Encoder, allocator: std.mem.Allocator, bytes: []const u8) Error!void {
     var rle = encoding.Encoder.init(allocator);
     defer rle.deinit();
@@ -482,10 +506,16 @@ fn writeByteColumn(enc: *encoding.Encoder, allocator: std.mem.Allocator, bytes: 
     }
 
     const use_rle = rle.bytes.items.len < bytes.len;
-    try enc.writeByte(if (use_rle) byte_column_rle else byte_column_raw);
+    const codec: u8 = @intFromEnum(if (use_rle) ByteColumnCodec.rle else ByteColumnCodec.raw);
+    try enc.writeByte(codec);
     try enc.writeBytes(if (use_rle) rle.bytes.items else bytes);
 }
 
+/// Write origin in a compact form; \
+/// null origin               -> 0 bytes of id payload \
+/// different client          -> client + clock \
+/// same client, previous id  -> 0 bytes of id payload \
+/// same client, other clock  -> only clock
 fn writeOrigin(
     allocator: std.mem.Allocator,
     kinds: *std.ArrayList(u8),
@@ -495,19 +525,27 @@ fn writeOrigin(
     origin: ?id.Id,
 ) Error!void {
     const value = origin orelse {
-        try kinds.append(allocator, origin_null);
+        const null_kind: u8 = @intFromEnum(OriginKind.null);
+        try kinds.append(allocator, null_kind);
         return;
     };
 
-    if (value.client == client and clock > 0 and value.clock == clock - 1) {
-        try kinds.append(allocator, origin_same_client_previous_clock);
-    } else if (value.client == client) {
-        try kinds.append(allocator, origin_same_client_clock);
-        try values.writeVarU64(value.clock);
-    } else {
-        try kinds.append(allocator, origin_full_id);
+    if (value.client != client) {
+        const full_id_kind: u8 = @intFromEnum(OriginKind.full_id);
+        try kinds.append(allocator, full_id_kind);
         try writeId(values, value);
+        return;
     }
+
+    if (clock > 0 and value.clock == clock - 1) {
+        const same_client_previous_clock_kind: u8 = @intFromEnum(OriginKind.same_client_previous_clock);
+        try kinds.append(allocator, same_client_previous_clock_kind);
+        return;
+    }
+
+    const same_client_clock_kind: u8 = @intFromEnum(OriginKind.same_client_clock);
+    try kinds.append(allocator, same_client_clock_kind);
+    try values.writeVarU64(value.clock);
 }
 
 fn firstStructAfterClock(
@@ -564,6 +602,8 @@ test "findStructAfterClock returns correct index" {
     try expectEqual(null, firstStructAfterClock(items, handles, 15));
 }
 
+// Writes the whole delete set
+// TODO: cache the delete set in the store and write only the delta
 fn writeDeleteSet(view: EncodeView, enc: *encoding.Encoder) Error!void {
     var ds: delete_set_mod.DeleteSet = .{};
     defer ds.deinit(view.allocator);

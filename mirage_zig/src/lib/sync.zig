@@ -11,6 +11,12 @@ pub const update_magic = "MYPEACE";
 pub const update_version: u8 = 1;
 pub const content_string_tag: u8 = 1;
 pub const content_format_tag: u8 = 2;
+const byte_column_raw: u8 = 0;
+const byte_column_rle: u8 = 1;
+const origin_null: u8 = 0;
+const origin_same_client_previous_clock: u8 = 1;
+const origin_same_client_clock: u8 = 2;
+const origin_full_id: u8 = 3;
 
 pub const Error = error{
     InvalidUtf8,
@@ -143,42 +149,7 @@ pub fn readUpdate(comptime Context: type, update: []const u8, callbacks: ReadUpd
     var client_index: usize = 0;
     while (client_index < client_count) : (client_index += 1) {
         const client = try dec.readVarU64();
-        const item_count = try dec.readVarU64();
-        var item_index: usize = 0;
-        while (item_index < item_count) : (item_index += 1) {
-            const clock = try dec.readVarU64();
-            const len_value = try dec.readVarU64();
-            const info = try dec.readByte();
-            const left_origin = if ((info & 1) != 0) try readId(&dec) else null;
-            const right_origin = if ((info & 2) != 0) try readId(&dec) else null;
-            const content_tag = try dec.readByte();
-            const content: DecodedContent = switch (content_tag) {
-                content_string_tag => blk: {
-                    const string_bytes = try dec.readBytes();
-                    const logical_len = try utf.countUnicodeLen(string_bytes);
-                    if (logical_len != len_value) return error.InvalidUpdate;
-                    break :blk .{ .string = string_bytes };
-                },
-                content_format_tag => blk: {
-                    if (len_value != 1) return error.InvalidUpdate;
-                    const key = try dec.readBytes();
-                    const value_is_null = (try dec.readByte()) != 0;
-                    const value: attrs.AttributeValue = if (value_is_null)
-                        .null
-                    else
-                        .{ .string = try dec.readBytes() };
-                    break :blk .{ .format = .{ .key = key, .value = value } };
-                },
-                else => return error.UnsupportedContent,
-            };
-            try callbacks.item(callbacks.context, .{
-                .id = .{ .client = client, .clock = clock },
-                .len = len_value,
-                .initial_left_origin_id = left_origin,
-                .initial_right_origin_id = right_origin,
-                .content = content,
-            });
-        }
+        try readClientBlock(Context, &dec, callbacks, client);
     }
 
     const delete_client_count = try dec.readVarU64();
@@ -198,6 +169,180 @@ pub fn readUpdate(comptime Context: type, update: []const u8, callbacks: ReadUpd
         }
     }
     try dec.expectEnd();
+}
+
+fn readClientBlock(
+    comptime Context: type,
+    dec: *encoding.Decoder,
+    callbacks: ReadUpdateCallbacks(Context),
+    client: id.ClientId,
+) ReadUpdateError!void {
+    const item_count_u64 = try dec.readVarU64();
+    if (item_count_u64 > std.math.maxInt(usize)) return error.InvalidUpdate;
+    const item_count: usize = @intCast(item_count_u64);
+    if (item_count == 0) return error.InvalidUpdate;
+
+    var clock = try dec.readVarU64();
+
+    var lens_dec = encoding.Decoder.init(try dec.readBytes());
+    var left_origin_kinds = try readByteColumn(dec);
+    var right_origin_kinds = try readByteColumn(dec);
+    var left_origin_dec = encoding.Decoder.init(try dec.readBytes());
+    var right_origin_dec = encoding.Decoder.init(try dec.readBytes());
+    var content_tags = try readByteColumn(dec);
+
+    var string_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    const string_bytes = try dec.readBytes();
+    var string_byte_offset: usize = 0;
+
+    var format_key_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    const format_key_bytes = try dec.readBytes();
+    var format_key_offset: usize = 0;
+    var format_value_nulls = try readByteColumn(dec);
+    var format_value_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    const format_value_bytes = try dec.readBytes();
+    var format_value_offset: usize = 0;
+
+    for (0..item_count) |_| {
+        const len_value = try lens_dec.readVarU64();
+        if (len_value == 0) return error.InvalidUpdate;
+
+        const left_origin = try readOrigin(&left_origin_kinds, &left_origin_dec, client, clock);
+        const right_origin = try readOrigin(&right_origin_kinds, &right_origin_dec, client, clock);
+
+        const content: DecodedContent = switch (try content_tags.read()) {
+            content_string_tag => blk: {
+                const byte_len = try readColumnLen(&string_lens_dec);
+                if (string_byte_offset + byte_len > string_bytes.len) return error.InvalidUpdate;
+                const bytes = string_bytes[string_byte_offset..][0..byte_len];
+                string_byte_offset += byte_len;
+
+                const logical_len = try utf.countUnicodeLen(bytes);
+                if (logical_len != len_value) return error.InvalidUpdate;
+                break :blk .{ .string = bytes };
+            },
+            content_format_tag => blk: {
+                if (len_value != 1) return error.InvalidUpdate;
+
+                const key_len = try readColumnLen(&format_key_lens_dec);
+                if (format_key_offset + key_len > format_key_bytes.len) return error.InvalidUpdate;
+                const key = format_key_bytes[format_key_offset..][0..key_len];
+                format_key_offset += key_len;
+
+                const value_is_null = (try format_value_nulls.read()) != 0;
+
+                const value: attrs.AttributeValue = if (value_is_null)
+                    .null
+                else value: {
+                    const value_len = try readColumnLen(&format_value_lens_dec);
+                    if (format_value_offset + value_len > format_value_bytes.len) return error.InvalidUpdate;
+                    const value_bytes = format_value_bytes[format_value_offset..][0..value_len];
+                    format_value_offset += value_len;
+                    break :value .{ .string = value_bytes };
+                };
+                break :blk .{ .format = .{ .key = key, .value = value } };
+            },
+            else => return error.UnsupportedContent,
+        };
+
+        try callbacks.item(callbacks.context, .{
+            .id = .{ .client = client, .clock = clock },
+            .len = len_value,
+            .initial_left_origin_id = left_origin,
+            .initial_right_origin_id = right_origin,
+            .content = content,
+        });
+        clock += len_value;
+    }
+
+    try lens_dec.expectEnd();
+    try left_origin_kinds.expectEnd();
+    try right_origin_kinds.expectEnd();
+    try left_origin_dec.expectEnd();
+    try right_origin_dec.expectEnd();
+    try content_tags.expectEnd();
+    try string_lens_dec.expectEnd();
+    if (string_byte_offset != string_bytes.len) return error.InvalidUpdate;
+    try format_key_lens_dec.expectEnd();
+    if (format_key_offset != format_key_bytes.len) return error.InvalidUpdate;
+    try format_value_nulls.expectEnd();
+    try format_value_lens_dec.expectEnd();
+    if (format_value_offset != format_value_bytes.len) return error.InvalidUpdate;
+}
+
+const ByteColumnDecoder = struct {
+    codec: u8,
+    raw: []const u8,
+    raw_index: usize = 0,
+    rle_dec: encoding.Decoder,
+    run_value: u8 = 0,
+    run_remaining: u64 = 0,
+
+    fn read(self: *ByteColumnDecoder) Error!u8 {
+        return switch (self.codec) {
+            byte_column_raw => blk: {
+                if (self.raw_index >= self.raw.len) return error.InvalidUpdate;
+                const value = self.raw[self.raw_index];
+                self.raw_index += 1;
+                break :blk value;
+            },
+            byte_column_rle => blk: {
+                if (self.run_remaining == 0) {
+                    self.run_remaining = try self.rle_dec.readVarU64();
+                    if (self.run_remaining == 0) return error.InvalidUpdate;
+                    self.run_value = try self.rle_dec.readByte();
+                }
+                self.run_remaining -= 1;
+                break :blk self.run_value;
+            },
+            else => error.InvalidUpdate,
+        };
+    }
+
+    fn expectEnd(self: *ByteColumnDecoder) Error!void {
+        switch (self.codec) {
+            byte_column_raw => if (self.raw_index != self.raw.len) return error.InvalidUpdate,
+            byte_column_rle => {
+                if (self.run_remaining != 0) return error.InvalidUpdate;
+                try self.rle_dec.expectEnd();
+            },
+            else => return error.InvalidUpdate,
+        }
+    }
+};
+
+fn readByteColumn(dec: *encoding.Decoder) Error!ByteColumnDecoder {
+    const codec = try dec.readByte();
+    const payload = try dec.readBytes();
+    return .{
+        .codec = codec,
+        .raw = payload,
+        .rle_dec = encoding.Decoder.init(payload),
+    };
+}
+
+fn readOrigin(
+    kinds: *ByteColumnDecoder,
+    values: *encoding.Decoder,
+    client: id.ClientId,
+    clock: id.Clock,
+) Error!?id.Id {
+    return switch (try kinds.read()) {
+        origin_null => null,
+        origin_same_client_previous_clock => if (clock == 0)
+            error.InvalidUpdate
+        else
+            .{ .client = client, .clock = clock - 1 },
+        origin_same_client_clock => .{ .client = client, .clock = try values.readVarU64() },
+        origin_full_id => try readId(values),
+        else => error.InvalidUpdate,
+    };
+}
+
+fn readColumnLen(dec: *encoding.Decoder) Error!usize {
+    const len = try dec.readVarU64();
+    if (len > std.math.maxInt(usize)) return error.InvalidUpdate;
+    return @intCast(len);
 }
 
 fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const StateVector) Error!void {
@@ -222,51 +367,145 @@ fn writeStructs(view: EncodeView, enc: *encoding.Encoder, target_state: *const S
 
         try enc.writeVarU64(client);
         try enc.writeVarU64(changed_items.len);
-        for (changed_items) |handle| {
-            const current = view.items[handle];
-            const current_len = current.getClockLen();
-            const is_target_contains_first_part = target_clock > current.id.clock;
-            const offset = if (is_target_contains_first_part) target_clock - current.id.clock else 0;
-            const write_id: id.Id = .{
-                .client = current.id.client,
-                .clock = current.id.clock + offset,
-            };
-            const write_len = current_len - offset;
-            try enc.writeVarU64(write_id.clock);
-            try enc.writeVarU64(write_len);
+        try writeClientColumns(view, enc, target_clock, changed_items);
+    }
+}
 
-            // 0 = no left origin, no right origin
-            // 1 = has left origin
-            // 2 = has right origin
-            // 3 = has both
-            var info: u8 = 0;
-            const left_origin: ?id.Id = if (is_target_contains_first_part)
-                .{ .client = current.id.client, .clock = write_id.clock - 1 }
-            else
-                current.initial_left_origin_id;
-            if (left_origin != null) info |= 1;
-            if (current.initial_right_origin_id != null) info |= 2;
-            try enc.writeByte(info);
-            if (left_origin) |origin| try writeId(enc, origin);
-            if (current.initial_right_origin_id) |right_origin| try writeId(enc, right_origin);
-            switch (current.content) {
-                .string => |slice| {
-                    try enc.writeByte(content_string_tag);
-                    const item_bytes = sliceBytes(view, slice);
-                    const byte_offset = try utf.getByteOffsetForCharIndex(item_bytes, offset);
-                    try enc.writeBytes(item_bytes[byte_offset..]);
-                },
-                .format => |format_slice| {
-                    if (offset != 0) return error.InvalidUpdate;
-                    try enc.writeByte(content_format_tag);
-                    try enc.writeBytes(attributeKeyBytes(view, format_slice));
-                    try enc.writeByte(if (format_slice.value_is_null) 1 else 0);
-                    if (!format_slice.value_is_null) {
-                        try enc.writeBytes(attributeValueBytes(view, format_slice));
-                    }
-                },
-            }
+fn writeClientColumns(
+    view: EncodeView,
+    enc: *encoding.Encoder,
+    target_clock: id.Clock,
+    changed_items: []const item_mod.ItemHandle,
+) Error!void {
+    const first = view.items[changed_items[0]];
+    const first_clock = if (target_clock > first.id.clock) target_clock else first.id.clock;
+    try enc.writeVarU64(first_clock);
+
+    var lens = encoding.Encoder.init(view.allocator);
+    defer lens.deinit();
+    var left_origin_kinds: std.ArrayList(u8) = .empty;
+    defer left_origin_kinds.deinit(view.allocator);
+    var right_origin_kinds: std.ArrayList(u8) = .empty;
+    defer right_origin_kinds.deinit(view.allocator);
+    var left_origins = encoding.Encoder.init(view.allocator);
+    defer left_origins.deinit();
+    var right_origins = encoding.Encoder.init(view.allocator);
+    defer right_origins.deinit();
+    var content_tags: std.ArrayList(u8) = .empty;
+    defer content_tags.deinit(view.allocator);
+    var string_lens = encoding.Encoder.init(view.allocator);
+    defer string_lens.deinit();
+    var string_bytes: std.ArrayList(u8) = .empty;
+    defer string_bytes.deinit(view.allocator);
+    var format_key_lens = encoding.Encoder.init(view.allocator);
+    defer format_key_lens.deinit();
+    var format_key_bytes: std.ArrayList(u8) = .empty;
+    defer format_key_bytes.deinit(view.allocator);
+    var format_value_nulls: std.ArrayList(u8) = .empty;
+    defer format_value_nulls.deinit(view.allocator);
+    var format_value_lens = encoding.Encoder.init(view.allocator);
+    defer format_value_lens.deinit();
+    var format_value_bytes: std.ArrayList(u8) = .empty;
+    defer format_value_bytes.deinit(view.allocator);
+
+    for (changed_items) |handle| {
+        const current = view.items[handle];
+        const current_len = current.getClockLen();
+        const is_target_contains_first_part = target_clock > current.id.clock;
+        const offset = if (is_target_contains_first_part) target_clock - current.id.clock else 0;
+        const write_clock = current.id.clock + offset;
+        const write_len = current_len - offset;
+        try lens.writeVarU64(write_len);
+
+        const left_origin: ?id.Id = if (is_target_contains_first_part)
+            .{ .client = current.id.client, .clock = write_clock - 1 }
+        else
+            current.initial_left_origin_id;
+        try writeOrigin(view.allocator, &left_origin_kinds, &left_origins, current.id.client, write_clock, left_origin);
+        try writeOrigin(view.allocator, &right_origin_kinds, &right_origins, current.id.client, write_clock, current.initial_right_origin_id);
+
+        switch (current.content) {
+            .string => |slice| {
+                try content_tags.append(view.allocator, content_string_tag);
+                const item_bytes = sliceBytes(view, slice);
+                const byte_offset = try utf.getByteOffsetForCharIndex(item_bytes, offset);
+                const bytes = item_bytes[byte_offset..];
+                try string_lens.writeVarU64(bytes.len);
+                try string_bytes.appendSlice(view.allocator, bytes);
+            },
+            .format => |format_slice| {
+                if (offset != 0) return error.InvalidUpdate;
+                try content_tags.append(view.allocator, content_format_tag);
+
+                const key = attributeKeyBytes(view, format_slice);
+                try format_key_lens.writeVarU64(key.len);
+                try format_key_bytes.appendSlice(view.allocator, key);
+                try format_value_nulls.append(view.allocator, if (format_slice.value_is_null) 1 else 0);
+                if (!format_slice.value_is_null) {
+                    const value = attributeValueBytes(view, format_slice);
+                    try format_value_lens.writeVarU64(value.len);
+                    try format_value_bytes.appendSlice(view.allocator, value);
+                }
+            },
         }
+    }
+
+    try enc.writeBytes(lens.bytes.items);
+    try writeByteColumn(enc, view.allocator, left_origin_kinds.items);
+    try writeByteColumn(enc, view.allocator, right_origin_kinds.items);
+    try enc.writeBytes(left_origins.bytes.items);
+    try enc.writeBytes(right_origins.bytes.items);
+    try writeByteColumn(enc, view.allocator, content_tags.items);
+    try enc.writeBytes(string_lens.bytes.items);
+    try enc.writeBytes(string_bytes.items);
+    try enc.writeBytes(format_key_lens.bytes.items);
+    try enc.writeBytes(format_key_bytes.items);
+    try writeByteColumn(enc, view.allocator, format_value_nulls.items);
+    try enc.writeBytes(format_value_lens.bytes.items);
+    try enc.writeBytes(format_value_bytes.items);
+}
+
+fn writeByteColumn(enc: *encoding.Encoder, allocator: std.mem.Allocator, bytes: []const u8) Error!void {
+    var rle = encoding.Encoder.init(allocator);
+    defer rle.deinit();
+    var index: usize = 0;
+    while (index < bytes.len) {
+        const value = bytes[index];
+        var run_len: u64 = 1;
+        index += 1;
+        while (index < bytes.len and bytes[index] == value) : (index += 1) {
+            run_len += 1;
+        }
+        try rle.writeVarU64(run_len);
+        try rle.writeByte(value);
+    }
+
+    const use_rle = rle.bytes.items.len < bytes.len;
+    try enc.writeByte(if (use_rle) byte_column_rle else byte_column_raw);
+    try enc.writeBytes(if (use_rle) rle.bytes.items else bytes);
+}
+
+fn writeOrigin(
+    allocator: std.mem.Allocator,
+    kinds: *std.ArrayList(u8),
+    values: *encoding.Encoder,
+    client: id.ClientId,
+    clock: id.Clock,
+    origin: ?id.Id,
+) Error!void {
+    const value = origin orelse {
+        try kinds.append(allocator, origin_null);
+        return;
+    };
+
+    if (value.client == client and clock > 0 and value.clock == clock - 1) {
+        try kinds.append(allocator, origin_same_client_previous_clock);
+    } else if (value.client == client) {
+        try kinds.append(allocator, origin_same_client_clock);
+        try values.writeVarU64(value.clock);
+    } else {
+        try kinds.append(allocator, origin_full_id);
+        try writeId(values, value);
     }
 }
 

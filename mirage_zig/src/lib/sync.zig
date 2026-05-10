@@ -193,27 +193,27 @@ fn readClientBlock(
 
     var clock = try dec.readVarU64();
 
-    var lens_dec = encoding.Decoder.init(try dec.readBytes());
+    var lens_dec = try readVarU64Column(dec);
     var left_origin_kinds = try readByteColumn(dec);
     var right_origin_kinds = try readByteColumn(dec);
     var left_origin_dec = encoding.Decoder.init(try dec.readBytes());
     var right_origin_dec = encoding.Decoder.init(try dec.readBytes());
     var content_tags = try readByteColumn(dec);
 
-    var string_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    var string_lens_dec = try readVarU64Column(dec);
     const string_bytes = try dec.readBytes();
     var string_byte_offset: usize = 0;
 
-    var format_key_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    var format_key_lens_dec = try readVarU64Column(dec);
     const format_key_bytes = try dec.readBytes();
     var format_key_offset: usize = 0;
     var format_value_nulls = try readByteColumn(dec);
-    var format_value_lens_dec = encoding.Decoder.init(try dec.readBytes());
+    var format_value_lens_dec = try readVarU64Column(dec);
     const format_value_bytes = try dec.readBytes();
     var format_value_offset: usize = 0;
 
     for (0..item_count) |_| {
-        const len_value = try lens_dec.readVarU64();
+        const len_value = try lens_dec.read();
         if (len_value == 0) return error.InvalidUpdate;
 
         const left_origin = try readOrigin(&left_origin_kinds, &left_origin_dec, client, clock);
@@ -333,6 +333,53 @@ fn readByteColumn(dec: *encoding.Decoder) Error!ByteColumnDecoder {
     };
 }
 
+const VarU64ColumnDecoder = struct {
+    codec: u8,
+    raw_dec: encoding.Decoder,
+    rle_dec: encoding.Decoder,
+    run_value: u64 = 0,
+    run_remaining: u64 = 0,
+
+    fn read(self: *VarU64ColumnDecoder) Error!u64 {
+        const codec = std.enums.fromInt(ByteColumnCodec, self.codec) orelse
+            return error.InvalidUpdate;
+        return switch (codec) {
+            .raw => try self.raw_dec.readVarU64(),
+            .rle => blk: {
+                if (self.run_remaining == 0) {
+                    self.run_remaining = try self.rle_dec.readVarU64();
+                    if (self.run_remaining == 0) return error.InvalidUpdate;
+                    self.run_value = try self.rle_dec.readVarU64();
+                }
+                self.run_remaining -= 1;
+                break :blk self.run_value;
+            },
+        };
+    }
+
+    fn expectEnd(self: *VarU64ColumnDecoder) Error!void {
+        const codec = std.enums.fromInt(ByteColumnCodec, self.codec) orelse
+            return error.InvalidUpdate;
+        switch (codec) {
+            .raw => try self.raw_dec.expectEnd(),
+            .rle => {
+                if (self.run_remaining != 0) return error.InvalidUpdate;
+                try self.rle_dec.expectEnd();
+            },
+        }
+    }
+};
+
+fn readVarU64Column(dec: *encoding.Decoder) Error!VarU64ColumnDecoder {
+    const codec = try dec.readByte();
+    const payload = try dec.readBytes();
+    return .{
+        .codec = codec,
+        .raw_dec = encoding.Decoder.init(payload),
+        .rle_dec = encoding.Decoder.init(payload),
+    };
+}
+
 fn readOrigin(
     kinds: *ByteColumnDecoder,
     values: *encoding.Decoder,
@@ -352,8 +399,8 @@ fn readOrigin(
     };
 }
 
-fn readColumnLen(dec: *encoding.Decoder) Error!usize {
-    const len = try dec.readVarU64();
+fn readColumnLen(dec: *VarU64ColumnDecoder) Error!usize {
+    const len = try dec.read();
     if (len > std.math.maxInt(usize)) return error.InvalidUpdate;
     return @intCast(len);
 }
@@ -401,8 +448,8 @@ fn writeClientColumns(
     try enc.writeVarU64(first_clock);
 
     // Clock len of written item
-    var lens = encoding.Encoder.init(view.allocator);
-    defer lens.deinit();
+    var lens: std.ArrayList(u64) = .empty;
+    defer lens.deinit(view.allocator);
     var left_origin_kinds: std.ArrayList(u8) = .empty;
     defer left_origin_kinds.deinit(view.allocator);
     var right_origin_kinds: std.ArrayList(u8) = .empty;
@@ -413,18 +460,18 @@ fn writeClientColumns(
     defer right_origins.deinit();
     var content_tags: std.ArrayList(u8) = .empty;
     defer content_tags.deinit(view.allocator);
-    var string_lens = encoding.Encoder.init(view.allocator);
-    defer string_lens.deinit();
+    var string_lens: std.ArrayList(u64) = .empty;
+    defer string_lens.deinit(view.allocator);
     var string_bytes: std.ArrayList(u8) = .empty;
     defer string_bytes.deinit(view.allocator);
-    var format_key_lens = encoding.Encoder.init(view.allocator);
-    defer format_key_lens.deinit();
+    var format_key_lens: std.ArrayList(u64) = .empty;
+    defer format_key_lens.deinit(view.allocator);
     var format_key_bytes: std.ArrayList(u8) = .empty;
     defer format_key_bytes.deinit(view.allocator);
     var format_value_nulls: std.ArrayList(u8) = .empty;
     defer format_value_nulls.deinit(view.allocator);
-    var format_value_lens = encoding.Encoder.init(view.allocator);
-    defer format_value_lens.deinit();
+    var format_value_lens: std.ArrayList(u64) = .empty;
+    defer format_value_lens.deinit(view.allocator);
     var format_value_bytes: std.ArrayList(u8) = .empty;
     defer format_value_bytes.deinit(view.allocator);
 
@@ -435,13 +482,14 @@ fn writeClientColumns(
         const offset = if (is_target_starts_inside_current) target_clock - current.id.clock else 0;
         const write_clock = current.id.clock + offset;
         const write_len = current_len - offset;
-        try lens.writeVarU64(write_len);
+        try lens.append(view.allocator, write_len);
 
         const left_origin: ?id.Id = if (is_target_starts_inside_current)
             .{ .client = current.id.client, .clock = write_clock - 1 }
         else
             current.initial_left_origin_id;
         try writeOrigin(view.allocator, &left_origin_kinds, &left_origins, current.id.client, write_clock, left_origin);
+        // TODO: reverse origins?
         try writeOrigin(view.allocator, &right_origin_kinds, &right_origins, current.id.client, write_clock, current.initial_right_origin_id);
 
         switch (current.content) {
@@ -451,7 +499,7 @@ fn writeClientColumns(
                 const item_bytes = sliceBytes(view, slice);
                 const byte_offset = try utf.getByteOffsetForCharIndex(item_bytes, offset);
                 const bytes = item_bytes[byte_offset..];
-                try string_lens.writeVarU64(bytes.len);
+                try string_lens.append(view.allocator, bytes.len);
                 try string_bytes.appendSlice(view.allocator, bytes);
             },
             .format => |format_slice| {
@@ -461,30 +509,30 @@ fn writeClientColumns(
                 try content_tags.append(view.allocator, kind);
 
                 const key = attributeKeyBytes(view, format_slice);
-                try format_key_lens.writeVarU64(key.len);
+                try format_key_lens.append(view.allocator, key.len);
                 try format_key_bytes.appendSlice(view.allocator, key);
                 try format_value_nulls.append(view.allocator, if (format_slice.value_is_null) 1 else 0);
                 if (!format_slice.value_is_null) {
                     const value = attributeValueBytes(view, format_slice);
-                    try format_value_lens.writeVarU64(value.len);
+                    try format_value_lens.append(view.allocator, value.len);
                     try format_value_bytes.appendSlice(view.allocator, value);
                 }
             },
         }
     }
 
-    try enc.writeBytes(lens.bytes.items);
+    try writeVarU64Column(enc, view.allocator, lens.items);
     try writeByteColumn(enc, view.allocator, left_origin_kinds.items);
     try writeByteColumn(enc, view.allocator, right_origin_kinds.items);
     try enc.writeBytes(left_origins.bytes.items);
     try enc.writeBytes(right_origins.bytes.items);
     try writeByteColumn(enc, view.allocator, content_tags.items);
-    try enc.writeBytes(string_lens.bytes.items);
+    try writeVarU64Column(enc, view.allocator, string_lens.items);
     try enc.writeBytes(string_bytes.items);
-    try enc.writeBytes(format_key_lens.bytes.items);
+    try writeVarU64Column(enc, view.allocator, format_key_lens.items);
     try enc.writeBytes(format_key_bytes.items);
     try writeByteColumn(enc, view.allocator, format_value_nulls.items);
-    try enc.writeBytes(format_value_lens.bytes.items);
+    try writeVarU64Column(enc, view.allocator, format_value_lens.items);
     try enc.writeBytes(format_value_bytes.items);
 }
 
@@ -508,6 +556,69 @@ fn writeByteColumn(enc: *encoding.Encoder, allocator: std.mem.Allocator, bytes: 
     const codec: u8 = @intFromEnum(if (use_rle) ByteColumnCodec.rle else ByteColumnCodec.raw);
     try enc.writeByte(codec);
     try enc.writeBytes(if (use_rle) rle.bytes.items else bytes);
+}
+
+fn writeVarU64Column(enc: *encoding.Encoder, allocator: std.mem.Allocator, values: []const u64) Error!void {
+    var raw = encoding.Encoder.init(allocator);
+    defer raw.deinit();
+    for (values) |value| {
+        try raw.writeVarU64(value);
+    }
+
+    var rle = encoding.Encoder.init(allocator);
+    defer rle.deinit();
+    var index: usize = 0;
+    while (index < values.len) {
+        const value = values[index];
+        var run_len: u64 = 1;
+        index += 1;
+        while (index < values.len and values[index] == value) : (index += 1) {
+            run_len += 1;
+        }
+        try rle.writeVarU64(run_len);
+        try rle.writeVarU64(value);
+    }
+
+    const use_rle = rle.bytes.items.len < raw.bytes.items.len;
+    const codec: u8 = @intFromEnum(if (use_rle) ByteColumnCodec.rle else ByteColumnCodec.raw);
+    try enc.writeByte(codec);
+    try enc.writeBytes(if (use_rle) rle.bytes.items else raw.bytes.items);
+}
+
+test "VarU64 column uses RLE when repeated values are smaller" {
+    const allocator = std.testing.allocator;
+    const values = [_]u64{ 1, 1, 1, 1, 1 };
+
+    var enc = encoding.Encoder.init(allocator);
+    defer enc.deinit();
+    try writeVarU64Column(&enc, allocator, &values);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(ByteColumnCodec.rle)), enc.bytes.items[0]);
+
+    var dec = encoding.Decoder.init(enc.bytes.items);
+    var column = try readVarU64Column(&dec);
+    for (values) |value| {
+        try std.testing.expectEqual(value, try column.read());
+    }
+    try column.expectEnd();
+    try dec.expectEnd();
+}
+
+test "VarU64 column keeps raw encoding when RLE is larger" {
+    const allocator = std.testing.allocator;
+    const values = [_]u64{ 1, 2, 3 };
+
+    var enc = encoding.Encoder.init(allocator);
+    defer enc.deinit();
+    try writeVarU64Column(&enc, allocator, &values);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(ByteColumnCodec.raw)), enc.bytes.items[0]);
+
+    var dec = encoding.Decoder.init(enc.bytes.items);
+    var column = try readVarU64Column(&dec);
+    for (values) |value| {
+        try std.testing.expectEqual(value, try column.read());
+    }
+    try column.expectEnd();
+    try dec.expectEnd();
 }
 
 /// Write origin in a compact form; \

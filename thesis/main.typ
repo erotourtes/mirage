@@ -802,9 +802,22 @@ integers, following the same general approach as the WebAssembly binary format
 
 Changed items are grouped by client, and their fields are written in columns
 rather than as independent records. This column-oriented layout makes repeated
-metadata easier to compress. For example, sequential editing often produces long
-runs of similar field values, which can be represented compactly using
-run-length encoding @rle[pp. 20-24].
+metadata easier to compress.
+
+For example, suppose one update contains `42` consecutive single-character items created by client `7`. A straightforward item-by-item encoding that stores both `ClientId` and `Clock` as fixed-width 64-bit values for every item would use $42 dot (64 + 64) / 8 = 672$ bytes just for item ids.
+
+The implementation instead writes one client block:
+
+```text
+client id: 7
+item count: 42
+first clock: C
+item columns: ...
+```
+
+The client id is stored once, and all items inside the block inherit that client. Their clocks are reconstructed from the first clock and the item-length column. For single-character items, the length column contains the same value repeated 42 times. This can be represented with run-length encoding as one run @rle[pp. 20-24], for example `(value: 1, run_len: 42)`.
+
+Because small integers are compact under unsigned LEB128 encoding, this id encoding occupies around 5 bytes. The exact saving depends on the data and column overhead, so the encoder uses run-length encoding only when it is smaller than the raw varint column.
 
 Deletion information is encoded separately as a delete set. The delete set
 groups deleted clock ranges by client, so multiple adjacent deletions can be

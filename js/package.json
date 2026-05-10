@@ -1,0 +1,12 @@
+{
+  "name": "mirage-js-workspace",
+  "private": true,
+  "packageManager": "pnpm@9.1.2",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "check": "pnpm -r check",
+    "format": "pnpm -r format",
+    "format:check": "pnpm -r format:check"
+  }
+}

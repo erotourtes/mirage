@@ -1,23 +1,7 @@
-export type ClientId = bigint | number;
-export type Clock = bigint | number;
-export type Revision = bigint | number;
-
 export type WasmPtr = number;
 export type WasmSize = number;
 export type WasmBool = 0 | 1;
 export type MirageDocHandle = number;
-
-export type AttributeValue = string | null;
-
-export interface Attribute {
-  key: string;
-  value: AttributeValue;
-}
-
-export interface DeltaOp {
-  insert: string;
-  attributes?: Record<string, string>;
-}
 
 export type ErrorCode =
   | 0 // ok
@@ -115,33 +99,3 @@ export interface MirageWasmExports {
     updateLen: WasmSize,
   ): ErrorCode;
 }
-
-// TODO: move higher level api out of this module
-export interface MirageDocument {
-  readonly handle: MirageDocHandle;
-  readonly length: bigint;
-  readonly currentRevision: bigint;
-  readonly historyLength: bigint;
-
-  insert(index: Clock, text: string): void;
-  insert(index: Clock, text: string, attribute: Attribute): void;
-  format(index: Clock, length: Clock, attribute: Attribute): void;
-  delete(index: Clock, length: Clock): void;
-  compact(): void;
-
-  toString(revision?: Revision | null): string;
-  encodeStateVector(): Uint8Array;
-  encodeUpdate(targetStateVector?: Uint8Array | null): Uint8Array;
-  applyUpdate(update: Uint8Array): void;
-  destroy(): void;
-}
-
-export interface Mirage {
-  readonly wasm: MirageWasmExports;
-  createDocument(clientId: ClientId): MirageDocument;
-}
-
-export function instantiateMirage(
-  source: BufferSource | WebAssembly.Module | Promise<Response>,
-  imports?: WebAssembly.Imports,
-): Promise<Mirage>;

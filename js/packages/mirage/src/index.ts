@@ -1,14 +1,53 @@
 import type {
-  Attribute,
-  ClientId,
-  Clock,
   ErrorCode,
-  Mirage,
-  MirageDocument,
+  MirageDocHandle,
   MirageWasmExports,
-} from "../../../static/wasm/mirage";
+} from "../wasm/mirage.d.ts";
 
-const WASM_URL = "/wasm/mirage.wasm";
+export type { ErrorCode, MirageDocHandle, MirageWasmExports };
+
+export type ClientId = bigint | number;
+export type Clock = bigint | number;
+export type Revision = bigint | number;
+
+export type AttributeValue = string | null;
+
+export interface Attribute {
+  key: string;
+  value: AttributeValue;
+}
+
+export interface DeltaOp {
+  insert: string;
+  attributes?: Record<string, string>;
+}
+
+export interface MirageDocument {
+  readonly handle: MirageDocHandle;
+  readonly length: bigint;
+  readonly currentRevision: bigint;
+  readonly historyLength: bigint;
+
+  insert(index: Clock, text: string): void;
+  insert(index: Clock, text: string, attribute: Attribute): void;
+  format(index: Clock, length: Clock, attribute: Attribute): void;
+  delete(index: Clock, length: Clock): void;
+  compact(): void;
+
+  toString(revision?: Revision | null): string;
+  encodeStateVector(): Uint8Array;
+  encodeUpdate(targetStateVector?: Uint8Array | null): Uint8Array;
+  applyUpdate(update: Uint8Array): void;
+  destroy(): void;
+}
+
+export interface Mirage {
+  readonly wasm: MirageWasmExports;
+  createDocument(clientId: ClientId): MirageDocument;
+}
+
+export const MIRAGE_WASM_URL = new URL("../wasm/mirage.wasm", import.meta.url)
+  .href;
 
 const errorMessages: Record<ErrorCode, string> = {
   0: "ok",
@@ -18,20 +57,13 @@ const errorMessages: Record<ErrorCode, string> = {
   4: "operation failed",
 };
 
-let miragePromise: Promise<Mirage> | null = null;
-
-export function loadMirage(): Promise<Mirage> {
-  miragePromise ??= instantiateMirage(fetch(WASM_URL));
-  return miragePromise;
-}
-
-export async function createDemoDocument(
-  initialText = "Mirage is running in WebAssembly.",
-): Promise<MirageDocument> {
-  const mirage = await loadMirage();
-  const doc = mirage.createDocument(1);
-  doc.insert(0, initialText);
-  return doc;
+export function loadMirage(
+  source: BufferSource | WebAssembly.Module | Promise<Response> = fetch(
+    MIRAGE_WASM_URL,
+  ),
+  imports?: WebAssembly.Imports,
+): Promise<Mirage> {
+  return instantiateMirage(source, imports);
 }
 
 export async function instantiateMirage(
@@ -58,7 +90,10 @@ async function instantiateExports(
   } else if (source instanceof Promise) {
     const response = await source;
     try {
-      const result = await WebAssembly.instantiateStreaming(response, imports);
+      const result = await WebAssembly.instantiateStreaming(
+        response.clone(),
+        imports,
+      );
       return result.instance.exports as unknown as MirageWasmExports;
     } catch {
       const bytes = await response.arrayBuffer();
@@ -92,15 +127,19 @@ class WasmDocument implements MirageDocument {
   }
 
   get length(): bigint {
-    this.assertAlive();
-    const outLenPtr = this.allocScratch(8);
+    return this.readU64((outPtr) => this.wasm.text_len(this.handle, outPtr));
+  }
 
-    try {
-      this.check(this.wasm.text_len(this.handle, outLenPtr));
-      return this.view().getBigUint64(outLenPtr, true);
-    } finally {
-      this.wasm.free(outLenPtr, 8);
-    }
+  get currentRevision(): bigint {
+    return this.readU64((outPtr) =>
+      this.wasm.text_current_revision(this.handle, outPtr),
+    );
+  }
+
+  get historyLength(): bigint {
+    return this.readU64((outPtr) =>
+      this.wasm.text_history_len(this.handle, outPtr),
+    );
   }
 
   insert(index: Clock, text: string, attribute?: Attribute): void {
@@ -183,13 +222,28 @@ class WasmDocument implements MirageDocument {
     );
   }
 
-  toString(): string {
+  compact(): void {
+    this.assertAlive();
+    this.check(this.wasm.text_compact(this.handle));
+  }
+
+  toString(revision?: Revision | null): string {
     this.assertAlive();
     const outPtrPtr = this.allocScratch(4);
     const outLenPtr = this.allocScratch(4);
 
     try {
-      this.check(this.wasm.text_to_string(this.handle, outPtrPtr, outLenPtr));
+      const code =
+        revision === null || revision === undefined
+          ? this.wasm.text_to_string(this.handle, outPtrPtr, outLenPtr)
+          : this.wasm.text_to_string_revision(
+              this.handle,
+              BigInt(revision),
+              outPtrPtr,
+              outLenPtr,
+            );
+
+      this.check(code);
       return this.readOwnedString(outPtrPtr, outLenPtr);
     } finally {
       this.wasm.free(outPtrPtr, 4);
@@ -260,6 +314,18 @@ class WasmDocument implements MirageDocument {
     if (this.destroyed) return;
     this.check(this.wasm.doc_destroy(this.handle));
     this.destroyed = true;
+  }
+
+  private readU64(read: (outPtr: number) => ErrorCode): bigint {
+    this.assertAlive();
+    const outPtr = this.allocScratch(8);
+
+    try {
+      this.check(read(outPtr));
+      return this.view().getBigUint64(outPtr, true);
+    } finally {
+      this.wasm.free(outPtr, 8);
+    }
   }
 
   private allocScratch(len: number): number {

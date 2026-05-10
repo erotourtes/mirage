@@ -4,7 +4,7 @@
 #let bibliography_style = "gost-r-705-2008-numeric"
 
 #let document_text_rules(body) = {
-  set text(font: font_main, lang: "uk", region: "UA", body_text_size)
+  set text(font: font_main, body_text_size)
   set par(
     justify: true,
     leading: body_par_leading,
@@ -30,7 +30,13 @@
     supplement: [Таблиця],
   )
   show figure.where(kind: table): set figure.caption(position: top)
-  show figure.caption.where(kind: table): it => align(right)[#it]
+  show figure.caption.where(kind: table): it => align(left)[
+    #box(
+      inset: (left: body_par_leading - 8pt),
+    )[
+      #it
+    ]
+  ]
   body
 }
 
@@ -44,7 +50,6 @@
   style: bibliography_style,
   full: false,
 ) = [
-  #set text(lang: "uk", region: "UA")
   #heading(numbering: none)[#title]
   #bibliography(
     sources,

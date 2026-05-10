@@ -49,6 +49,8 @@
   let display_body = report_section_display_body(title)
   [
     #if section_number != none {
+      counter(figure.where(kind: image)).update(0)
+      counter(figure.where(kind: table)).update(0)
       counter(heading).update(section_number)
     }
     #colbreak(weak: true)
@@ -71,6 +73,16 @@
     )) #report_labels.section
     #v(1em)
   ]
+}
+
+#let report_table_numbering(n) = context {
+  let section_number = counter(heading).get().first()
+  numbering("1.1", section_number, n)
+}
+
+#let report_figure_numbering(n) = context {
+  let section_number = counter(heading).get().first()
+  numbering("1.1", section_number, n)
 }
 
 #let report_heading_rules(it) = {

@@ -17,6 +17,9 @@
   #show heading.where(level: 1): it => heading_config(level: 1, it: it)
   #show heading.where(level: 2): it => heading_config(level: 2, it: it)
   #show heading.where(level: 3): it => heading_config(level: 3, it: it)
+  // adds spacing between list items
+  #show selector.or(list.item, enum.item): block
+  #set text(lang: "uk", region: "UA")
 
   #title_page(
     meta: default_title_meta,
@@ -68,3 +71,35 @@
 
   #doc
 ]
+
+// На ілюстрації дають посилання типу “рис. 1.2” чи “(рис. 1.2)”.
+// Посилання на раніше згадувані ілюстрації даються за типом “див. рис. 1.2”.
+#let fig_ref(target, see: false, parens: false) = {
+  let content = if see {
+    ref(target, supplement: [див. рис.])
+  } else {
+    ref(target, supplement: [рис.])
+  }
+
+  if parens {
+    [(#content)]
+  } else {
+    content
+  }
+}
+
+// На таблицю даються посилання типу “у таблиці 2.12”.
+// На раніше згадувані таблиці дають посилання типу “див. таблицю 2.12”.
+#let table_ref(target, see: false, parens: false) = {
+  let content = if see {
+    [#ref(target, supplement: [див. таблицю])]
+  } else {
+    [#ref(target, supplement: [у таблиці])]
+  }
+
+  if parens {
+    [(#content)]
+  } else {
+    content
+  }
+}

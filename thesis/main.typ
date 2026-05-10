@@ -1,5 +1,5 @@
-#import "./diagrams.typ": diagrams
-#import "./protocol_diagrams.typ": protocol-diagrams
+#import "./ua/diagrams/diagrams.typ": diagrams
+#import "./ua/diagrams/protocol_diagrams.typ": protocol-diagrams
 
 #set page(
   numbering: "1 / 1",
@@ -767,8 +767,8 @@ clock range and stores its logical length.
 
 Encoding updates as JSON would be inefficient because collaborative text data
 contains a large amount of repeated metadata. General binary formats such as
-Cap'n Proto @cap-n-proto-encoding are more compact, but a custom binary format can reduce metadata
-even further by exploiting the structure of CRDT updates
+Cap'n Proto @cap-n-proto-encoding are more compact, but a custom binary format
+can reduce metadata even further by exploiting the structure of CRDT updates
 @crdt-reducing-metadata-overhead.
 
 As shown in @fig:update-layout, an update consists of a small envelope, changed
@@ -992,4 +992,4 @@ as Yjs or Automerge. The main limitations are:
   ranges are rejected. Very large documents may therefore require chunking or
   application-level handling.
 
-#bibliography("./bib.yml")
+#bibliography("./ua/bib.yml")

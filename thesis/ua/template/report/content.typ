@@ -1,6 +1,7 @@
 #import "lib/index.typ": (
-  report_abbreviations_page, report_bibliography_page, report_heading_rules,
-  report_labels, report_outline_page, report_page, report_title_page,
+  report_abbreviations_page, report_bibliography_page, report_figure_numbering,
+  report_heading_rules, report_labels, report_outline_page, report_page,
+  report_table_numbering, report_title_page,
 )
 #import "../lib/lib.typ": full_document_code
 #import "../lib/theme.typ": bibliography_style
@@ -14,6 +15,10 @@
   body,
 ) = [
   #show heading: report_heading_rules
+  #show figure.where(kind: image): set figure(
+    numbering: report_figure_numbering,
+  )
+  #show figure.where(kind: table): set figure(numbering: report_table_numbering)
 
   #report_title_page(
     topic: thesis.topic,

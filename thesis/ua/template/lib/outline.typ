@@ -27,7 +27,9 @@
       columns: (auto, 1fr, auto),
       column-gutter: 1.6mm,
       [#pad(left: 11mm * calc.max(entry.level - 1, 0))[
-        #heading_number #entry.body
+        #heading_number #if entry.level == 1 {
+          upper(entry.body)
+        } else [ #entry.body ]
       ]],
       [#box(width: 100%, clip: true)[#repeat()[.]]],
       [#page_number],

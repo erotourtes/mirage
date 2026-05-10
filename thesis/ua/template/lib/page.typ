@@ -22,7 +22,7 @@
   ),
   numbering: none,
 )[
-  #set text(font: font_main, lang: "uk", region: "UA", body_text_size)
+  #set text(font: font_main, body_text_size)
   #body
 ]
 

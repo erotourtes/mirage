@@ -1,7 +1,9 @@
-#import "lib/template.typ": thesis_template
-#import "technical_task/content.typ": technical_task_content
-#import "report/content.typ": report_content
-#import "appendix/content.typ": d1_content, d2_content, d3_content, d4_content
+#import "template/lib/template.typ": thesis_template
+#import "template/technical_task/content.typ": technical_task_content
+#import "template/report/content.typ": report_content
+#import "template/appendix/content.typ": (
+  d1_content, d2_content, d3_content, d4_content,
+)
 
 #let thesis = (
   topic: [Модуль синхронізації текстових даних у розподілених системах],

@@ -311,11 +311,21 @@ crdt-zed:
 
 crdt-g-counter-example:
   type: Video
+  title: "John Mumm - A CRDT Primer: Defanging Order Theory"
   time-range: 00:01:00-00:32:25
   runtime: 00:37:00
   url:
     value: https://www.youtube.com/watch?v=OOlnp2bZVRs
     date: 2026-04-18
+
+crdt-reducing-metadata-overhead:
+  type: Video
+  title: "CRDTs: The Hard Parts"
+  time-range: 00:53:22-00:59:47
+  runtime: 01:10:09
+  url:
+    value: https://www.youtube.com/watch?v=x7drE24geUw
+    date: 2026-05-10
 
 concurrency-control-classification:
   type: Article
@@ -419,3 +429,33 @@ uuid7:
   url:
     value: https://uuid7.com/
     date: 2026-05-09
+
+rle:
+  type: Book
+  title: "Data Compression: The Complete Reference"
+  author:
+    - Salomon, David
+  date: 2004
+  publisher: Springer
+  location: New York
+  serial-number:
+    isbn: 0387406972
+  url:
+    value: https://archive.org/details/pdfy-Ezz1QE-FRYsgeVKU
+    date: 2026-05-10
+
+mdn-wasm-text-format:
+  type: web
+  title: Understanding WebAssembly text format
+  url: 
+    value: https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Understanding_the_text_format#webassembly_memory
+    date: 2026-05-10
+
+grapheme-clustering:
+  type: Blog
+  date: 2023-10-02
+  title: Grapheme Clusters and Terminal Emulators
+  author: Mitchell Hashimoto
+  url:
+    value: https://mitchellh.com/writing/grapheme-clusters-in-terminals
+    date: 2026-05-10

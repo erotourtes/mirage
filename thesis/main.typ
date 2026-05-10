@@ -1,4 +1,5 @@
 #import "./diagrams.typ": diagrams
+#import "./protocol_diagrams.typ": protocol-diagrams
 
 #set page(
   numbering: "1 / 1",
@@ -401,7 +402,7 @@ Thus, the internal sequence acts as the source of truth, while plain text and at
 == Item Identity
 
 Each item needs to have a global unique identifier.
-A simple way to create unique identities without a central coordinator is to use UUIDs. UUIDv7 is especially attractive because it contains a time-ordered field derived from the Unix epoch timestamp, which makes identifiers approximately sortable by creation time @uuid7. However, assigning a full UUID to every item 
+A simple way to create unique identities without a central coordinator is to use UUIDs. UUIDv7 is especially attractive because it contains a time-ordered field derived from the Unix epoch timestamp, which makes identifiers approximately sortable by creation time @uuid7. However, assigning a full UUID to every item
 would add 16 bytes of identifier metadata per item. Furthermore the timestamp is based on physical time, which is not a reliable source of causal ordering in distributed systems because of clock skew.
 Logical clocks are a common solution for ordering events in distributed systems @logical-clocks. Lamport clocks assign a logical timestamp to each event and can be extended with a replica identifier to obtain a deterministic total order ($prec$) of operations @lamport-time-clocks-ordering[pp. 560-562]. This order is defined as follows:
 
@@ -437,7 +438,7 @@ A text item may cover more than one clock value. For example, if client `1`
 inserts `"hello"` into an empty document, the implementation can store it as one
 item with id `{1, 0}` and length `5`. This item owns the clock range
 `{1, [0..4]}`. The next item created by the same client starts at
-clock `5`. 
+clock `5`.
 
 The implementation assumes that active replicas use unique client ids and does
 not provide client-id generation. In a real
@@ -461,7 +462,7 @@ This distinction is necessary because two replicas may store the same logical it
 
 Item content is also stored compactly. Text and attribute strings are kept in a byte buffer owned by `TextImpl`. An item does not own a separate string; instead, it stores a range into this buffer. A text slice stores both the byte range and the logical length in Unicode scalar values. This allows the implementation to store UTF-8 text while exposing indexes in visible character units.
 
-For synchronization, the implementation uses `StructStore`. It groups item handles by the client that created them and keeps each client's items ordered by clock. For each client, clock ranges must be contiguous. This store is used to answer several synchronization-related questions:
+For synchronization, the implementation uses `StructStore`. It groups item handles by the client that created them and keeps each client's items ordered by clock. For each client, clock ranges must be contiguous. Because of this ordering, the store can find the item that contains a given `{client, clock}` id using binary search. This store is used to answer several synchronization-related questions:
 
 - what clock the next local item should use;
 - whether an item id is already known;
@@ -507,13 +508,33 @@ Consider these operations on an empty document:
 - `insert(5, ",")`
 
 #figure(
+  table(
+    columns: (0.75fr, 1fr, 1.35fr, 1.15fr),
+    align: horizon,
+    table.header([handle], [id], [content slice], [links]),
+    [`h0`], [`{1,0}`], [`bytes[0..5] = "Hello"`], [`left=null, right=h2`],
+    [`h1`], [`{1,5}`], [`bytes[5..11] = " world"`], [`left=h2, right=null`],
+    [`h2`], [`{1,11}`], [`bytes[11..12] = ","`], [`left=h0, right=h1`],
+  ),
+  caption: [Item metadata after inserting a comma],
+) <fig:local-insert-table>
+
+In @fig:local-insert-table, the comma item is appended as handle `h2`, so it
+appears after `h0` and `h1` in the item array. However, the visible document is
+not read in array order. It is read by following the linked-list order, which is
+`h0 -> h2 -> h1` and renders as `"Hello, world"`.
+
+#figure(
   diagrams.local-insert-state,
-  caption: [Local insertion state after inserting a comma],
+  caption: [Document order and shared byte buffer after inserting a comma],
 ) <fig:local-insert>
 
-In @fig:local-insert, the comma item is appended as handle `h2`, so it appears after `h0` and `h1` in the item array. However, the visible document is not read in array order. It is read by following the linked-list order, which is `h0 -> h2 -> h1` and renders as `"Hello, world"`.
+@fig:local-insert shows the same state from a different angle. The linked list
+defines the document order, while each item points to a slice in the shared byte
+buffer. The byte buffer keeps data in append order, so its physical layout does
+not have to match the visible document order.
 
-When an item is created, it also records origin ids. The left origin is the last id covered by the item on the left, and the right origin is the first id of the item on the right. These origins allow another replica to insert the same item into the corresponding logical gap, even if that replica uses different local handles.
+When an item is created, it records origin ids. The left origin is the last id covered by the left neighbor, and the right origin is the first id of the right neighbor. These origins describe the gap where the item was originally inserted. They are not the same as the current `left` and `right` links, since they may change later when other items are inserted nearby, while origins remain stable. This allows another replica to insert the item into the same logical gap.
 
 === Deletion
 
@@ -574,77 +595,141 @@ This makes remote deletion independent of the receiver's current visible text. E
 == Synchronization
 
 Synchronization is separated from the transport layer. The CRDT does not care
-whether update bytes are sent through WebRTC, WebSocket, local storage, or a
-server acting only as a relay. The synchronization API only needs two byte
-messages: a state vector and an update.
+whether update bytes are sent through WebRTC, WebSocket, local storage etc. The synchronization API only needs two messages: a state vector and an update.
 
 === State Vectors
 
 A state vector is a compact summary of what a replica already knows. It stores,
 for each client, the next clock that this replica expects from that client. For
 example, if a replica has items from client `7` covering clocks `0..12`, then
-its state vector contains the next item it expects: `7 -> 13`
+its state vector contains the next item it expects: `"client 7": 13`
 
 This means that clocks below `13` from client `7` are already known, and clock
 `13` is the next missing position in that client's history.
 
 State vectors are small because they depend on the number of clients, not on
-the size of the document. They are also closely connected to the `StructStore`:
-for each client, the store can compute the next expected clock from the last
-known item range.
+the size of the document. The implementation builds this summary directly from `StructStore`.
 
 === Updates
 
-An update is encoded relative to a target state vector. If no target state
-vector is provided, the implementation encodes the whole known document state.
-If a target state vector is provided, the implementation sends only the item
-ranges that the target is missing.
+An update is encoded relative to a target state vector. If no target state vector is provided, the implementation encodes the whole known document state. If a target state vector is provided, the implementation sends only the item ranges that the target replica is missing.
 
-For every client, the encoder finds the first item whose clock range is not
-fully covered by the target state vector. If the target already has the first
-part of a text item, the update can start in the middle of that item and send
-only the suffix. This works because a text item owns a contiguous clock range
-and stores its logical length.
+For each client, the encoder finds the first item whose clock range is not fully covered by the target state vector. If the target already has the first part of a text item, the update can start in the middle of that item and send only the remaining suffix. This is possible because each text item owns a contiguous clock range and stores its logical length.
 
 #figure(
-  diagrams.encoding-protocol,
-  caption: [Synchronization message structure],
-) <fig:encoding-protocol>
+  protocol-diagrams.update-layout,
+  caption: [Binary update layout],
+) <fig:update-layout>
 
-As shown in @fig:encoding-protocol, an update has a small envelope followed by
-changed item blocks and a delete set. The current binary format starts with the
-magic bytes `"MYPEACE"` and version `1`. Integer values are encoded as unsigned
-LEB128 varints which follows the wasm binary encoding standard @webassembly-binary-values. The changed items are grouped by
-client, and item fields are written in columns rather than as independent
-records. This keeps common repeated information, such as content tags or origin
-kinds, compact.
+Encoding updates as JSON would be inefficient because collaborative text data contains a large amount of repeated metadata. General binary formats such as Cap'n Proto are more compact, but a custom binary format can reduce metadata even further by exploiting the structure of CRDT updates @crdt-reducing-metadata-overhead.
 
-The update also includes deletion information as clock ranges grouped by client.
-Sending deletion ranges separately is useful because deletion does not create a
-new visible text item; it changes the deleted flag of existing historical
-items. Applying the same delete range more than once is safe, so deletion
-propagation remains idempotent.
+As shown in @fig:update-layout, an update consists of a small envelope, changed item blocks, and a delete set. The envelope contains magic bytes and a version number. Integer values are encoded using unsigned LEB128-style variable-length integers, following the same general approach as the WebAssembly binary format @webassembly-binary-values.
 
-This section intentionally does not describe the complete byte layout. The
-important design point is that synchronization is based on stable item ids,
-state vectors, and idempotent updates rather than on visible indexes or a
-central operation log.
+Changed items are grouped by client, and their fields are written in columns rather than as independent records. This column-oriented layout makes repeated metadata easier to compress. For example, sequential editing often produces long runs of similar field values, which can be represented compactly using run-length encoding @rle[pp. 20-24].
+
+Deletion information is encoded separately as a delete set. The delete set groups deleted clock ranges by client, so multiple adjacent deletions can be represented as ranges instead of individual item ids.
+
+This section does not describe the complete byte layout. The important design point is that synchronization is based on stable item ids and state vectors, and this metadata can be encoded compactly.
 
 === Out-of-Order Delivery
 
-Updates may arrive before their dependencies. For example, a replica may receive
-a deletion for a text range before it has received the insertion that created
-that range. Similarly, a remote item may refer to left or right origins that are
-not known locally yet.
+Updates may arrive before their dependencies. For example, a replica may receive a deletion for a text range before it has received the insertion that created that range. Similarly, a remote item may refer to left or right origins that are not known locally yet.
 
-When this happens, the implementation does not discard the update. It stores the
-update in a bounded pending-update buffer. After any later update is integrated
-successfully, the pending updates are retried. Once their dependencies are
-available, they can be applied normally.
+When this happens, the implementation does not discard the update immediately. It stores the update in a bounded pending-update buffer. After any later update is integrated successfully, pending updates are retried. Once their dependencies are available, they can be applied normally.
 
-This means that the transport layer does not need to provide causal delivery.
-Messages may be delayed, duplicated, or delivered in a different order from the
-one in which they were created. As long as all replicas eventually receive the
-same set of updates, the CRDT state can still converge.
+This means that the transport layer does not need to provide causal delivery. Messages may be delayed, duplicated, or delivered in a different order from the one in which they were created. As long as all replicas eventually receive the same set of updates, the CRDT state can still converge.
+
+== Rich Text Formatting
+
+Formatting is represented inside the same CRDT sequence as text. The implementation does not maintain a separate interval tree for styles. Instead, it inserts non-countable format items into the linked list. These items have ids and origins like text items, so they can be synchronized and ordered using the same CRDT machinery, but they do not contribute to the visible text length.
+
+A format item changes the active value of one attribute key for the text that follows it. The value can be a string, which sets the attribute, or `null`, which clears it. For example, applying `bold=true` to `"world"` in `"Hello, world"` is represented by placing a marker before the formatted range and a clearing marker after it:
+
+`[Hello, ] [bold=true] [world] [bold=null]`
+
+#figure(
+  table(
+    columns: (0.7fr, 1fr, 1.65fr, 1.05fr),
+    align: horizon,
+    table.header([handle], [kind], [content slice], [visible]),
+    [`h0`], [string], [`bytes[0..5] = "Hello"`], [yes],
+    [`h2`], [string], [`bytes[11..12] = ","`], [yes],
+    [`h1`], [string], [`bytes[5..6] = " "`], [yes],
+
+    [`h4`],
+    [format],
+    [`key = bytes[12..16] = "bold", value = bytes[16..20] = "true"`],
+    [no],
+
+    [`h3`], [string], [`bytes[6..11] = "world"`], [yes],
+    [`h5`], [format], [`key = bytes[20..24] = "bold", value=null`], [no],
+  ),
+  caption: [Item metadata after formatting a range],
+) <fig:attribute-marker-table>
+
+#figure(
+  diagrams.attribute-markers,
+  caption: [Formatting markers in the item sequence],
+) <fig:attribute-markers>
+
+@fig:attribute-marker-table shows the item metadata for this example, while @fig:attribute-markers shows the same state as an ordered sequence. Format markers are ordinary CRDT items with ids and byte slices, but they are skipped when producing plain visible text.
+
+Rendering walks the sequence from left to right. When it encounters a format item, it updates the currently active attributes. When it encounters a non-deleted string item, it emits the text with the attributes that are active at that point. The same traversal can therefore produce plain text by ignoring active attributes, or attributed delta operations by attaching the active attributes to each emitted text fragment.
+
+Restore markers are needed when formatting only a range. If an attribute had a previous value after the range, the implementation restores that value; otherwise it inserts a `null` marker to clear the attribute. This allows overlapping formatting to behave naturally. For example, applying blue formatting to the middle of an already red range affects only the nested range, while the text after it returns to red:
+
+#figure(
+  align(center)[
+    #grid(
+      columns: (auto, auto, auto),
+      column-gutter: 0.8em,
+      align: horizon,
+      box(inset: 3pt, stroke: red)[#text(fill: red)[abcd]],
+      $arrow.r.long$,
+      box(inset: 3pt, stroke: red)[
+        #text(fill: red)[a]
+        #box(inset: 3pt, stroke: blue)[#text(fill: blue)[bc]]
+        #text(fill: red)[d]
+      ],
+    )
+  ],
+  caption: [Restoring formatting after applying a nested range],
+)
+
+Formatting markers may become redundant after later edits. For example, the formatted range may be deleted, or two neighboring markers may set the same value. The implementation therefore provides `compact()`, which removes redundant format markers and joins adjacent string items when this is safe. Compaction is an explicit maintenance operation rather than a step performed after every edit, because local editing should remain fast even if the internal representation is not immediately minimal.
+
+== WebAssembly Interface
+
+The WebAssembly interface is intentionally minimal and consists of raw exported functions. JavaScript code does not access Zig structs directly. Instead, it creates a document and receives an opaque handle, which is passed back to exported functions.
+
+Text and update data cross the boundary as pointer-and-length pairs because raw WebAssembly exports cannot receive JavaScript strings directly @mdn-wasm-text-format. JavaScript first copies the bytes into WebAssembly memory, then passes the pointer and length to the exported function. Output data is returned the same way, and the wrapper exposes allocation and free functions so JavaScript can manage these temporary buffers.
+
+Operations that can fail return compact integer error codes at the WebAssembly boundary. Internally, the Zig implementation still uses error unions, but the exported API converts them into a representation that is simple to handle from JavaScript.
+
+== Testing and Validation
+
+This implementation does not include a formal machine-checked proof. Instead, it is validated with behavior-focused tests that exercise the main correctness properties expected from the CRDT model.
+
+The lowest-level tests are unit tests. They cover utility behavior used by higher-level algorithms.
+
+The most important tests are randomized fuzz tests. They create several document replicas, apply random operations, and then check that all replicas eventually render the same document. These tests do not prove correctness for every possible execution, but they are effective at exposing mistakes.
+
+== Limitations
+
+The implementation is intentionally narrower than production CRDT libraries such as Yjs or Automerge. The main limitations are:
+
+- *Single text document.* The implementation focuses on one collaborative text value. It does not provide general CRDT maps, arrays, XML-like structures, subdocuments, snapshots, undo management, or awareness state.
+
+- *Tombstone growth.* Deleted items remain in the structure because remote operations may still refer to their ids. The implementation provides `compact()` for some safe local cleanup, but it does not implement full CRDT garbage collection.
+
+- *Simple delete synchronization.* Updates currently include the known delete set. This keeps deletion idempotent and easy to integrate, but it can be inefficient for documents with large deletion histories.
+
+- *Bounded pending updates.* Out-of-order updates are stored in a bounded pending buffer. This prevents unbounded memory growth, but retrying is coarse-grained and not indexed by exact missing dependencies.
+
+- *Unicode scalar indexing.* Public indexes are based on Unicode scalar values over valid UTF-8, not grapheme clusters @grapheme-clustering.
+
+- *Limited rich-text model.* Attributes are represented only as string values or `null`. This is enough for simple metadata such as bold, colors, and links, but it is not a complete rich-text document model. Format attribute values are also duplicated in the shared buffer rather than interned in a key/value pool.
+
+- *Explicit size and format checks.* Invalid UTF-8, malformed updates, unsupported versions, trailing bytes, and values that exceed supported integer ranges are rejected. Very large documents may therefore require chunking or application-level handling.
 
 #bibliography("./bib.yml")

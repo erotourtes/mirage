@@ -34,12 +34,21 @@
 
 #let clock-label(pos, body) = label-node(pos, text(size: 8pt, body))
 
-#let range-box(body, fill: rgb("#ead7cf")) = box(
+#let range-box(body, fill: rgb("#ead7cf"), width: auto) = box(
   inset: (x: 5pt, y: 3pt),
   radius: 2pt,
   stroke: 0.8pt,
   fill: fill,
+  width: width,
   body,
+)
+
+#let byte-segment(body, fill: rgb("#d9eaf7"), width: auto) = box(
+  width: width,
+  inset: (x: 5pt, y: 3pt),
+  stroke: 0.8pt,
+  fill: fill,
+  align(center, body),
 )
 
 #let item-box(title, body, fill: rgb("#f7f3ef")) = box(
@@ -240,93 +249,110 @@
       range-box($(0, 14)$, fill: rgb("#d9ead3")),
     ),
   ),
-  local-insert-state: stack(
-    dir: ttb,
-    spacing: 0.8em,
-    align(center)[after `insert(5, ",")`],
-    table(
-      columns: (0.85fr, 1.1fr, 1.1fr, 1.2fr),
-      align: horizon,
-      table.header([handle], [id], [content slice], [links]),
-      [`h0`], [`{1,0}`], [`bytes[0..5] = "Hello"`], [`left=null, right=h2`],
-      [`h1`], [`{1,5}`], [`bytes[5..11] = " world"`], [`left=h2, right=null`],
-      [`h2`], [`{1,11}`], [`bytes[11..12] = ","`], [`left=h0, right=h1`],
-    ),
-    text(size: 8pt)[document order:],
-    stack(
-      dir: ltr,
-      spacing: 0.35em,
-      item-box([h0], [`Hello`\ `bytes[0..5]`]),
-      link-arrow,
-      item-box([h2], [`,`\ `bytes[11..12]`], fill: rgb("#d9ead3")),
-      link-arrow,
-      item-box([h1], [` world`\ `bytes[5..11]`]),
-    ),
-    text(size: 8pt)[shared byte buffer: `"Hello world,"`\ items array order: `h0`, `h1`, `h2`;],
-  ),
-  attribute-markers: stack(
-    dir: ttb,
-    spacing: 0.8em,
-    align(center)[after `format(7, 5, bold=true)` on `"Hello, world"`],
-    table(
-      columns: (0.7fr, 1fr, 1.65fr, 1.05fr),
-      align: horizon,
-      table.header([handle], [kind], [content slice], [visible]),
-      [`h0`], [string], [`bytes[0..5] = "Hello"`], [yes],
-      [`h2`], [string], [`bytes[11..12] = ","`], [yes],
-      [`h1`], [string], [`bytes[5..6] = " "`], [yes],
-      [`h4`], [format], [`key=bytes[12..16], value=bytes[16..20]`], [no],
-      [`h3`], [string], [`bytes[6..11] = "world"`], [yes],
-      [`h5`], [format], [`key=bytes[20..24], value=null`], [no],
-    ),
-    stack(
-      dir: ltr,
-      spacing: 0.25em,
+  local-insert-state: diagram(
+    spacing: (10mm, 10mm),
+    edge-stroke: 0.8pt,
+
+    label-node((-0.7, 0), text(size: 8pt)[document\ order]),
+
+    node(
+      (0, 0),
       item-box([h0], [`Hello`]),
-      link-arrow,
+      name: <li-h0>,
+    ),
+    node(
+      (1.5, 0),
       item-box([h2], [`,`], fill: rgb("#d9ead3")),
-      link-arrow,
-      item-box([h1], [`space`]),
-      link-arrow,
-      item-box([h4], [`bold=true`], fill: rgb("#d9eaf7")),
-      link-arrow,
-      item-box([h3], [`world`]),
-      link-arrow,
-      item-box([h5], [`bold=null`], fill: rgb("#d9eaf7")),
+      name: <li-h2>,
     ),
-    text(size: 8pt)[format markers are stored as items, but `countable=false`; only string items contribute to visible length],
+    node(
+      (3, 0),
+      item-box([h1], [` world`]),
+      name: <li-h1>,
+    ),
+
+    edge(<li-h0>, <li-h2>, "<|-|>"),
+    edge(<li-h2>, <li-h1>, "<|-|>"),
+
+    label-node((-0.7, 1.35), text(size: 8pt)[shared\ byte\ buffer]),
+    node((32.5mm, 20mm), text(size: 8pt)[`[0..5)`], name: <b0>),
+    node(
+      (41mm, 14mm),
+      range-box([`"Hello"`], fill: rgb("#d9eaf7"), width: 5 * 20pt),
+      name: <li-b0>,
+    ),
+    node((69.0mm, 20mm), text(size: 8pt)[`[5..11)`], name: <b1>),
+    node(
+      (rel: (5 * 20pt / 2 + 6 * 20pt / 2 + 2pt * 1, 0mm), to: <li-b0>),
+      range-box(
+        [`" world"`],
+        fill: rgb("#d9eaf7"),
+        width: 6 * 20pt,
+      ),
+      name: <li-b1>,
+    ),
+    node((110.0mm, 20mm), text(size: 8pt)[`[11..12)`], name: <b2>),
+    node(
+      (
+        rel: (5 * 20pt / 2 + 6 * 20pt + 1 * 20pt / 2 + 2pt * 2, 0mm),
+        to: <li-b0>,
+      ),
+      range-box([`","`], fill: rgb("#d9ead3"), width: 1 * 20pt),
+      name: <li-b2>,
+    ),
+
+    edge(<li-h0>, <b0>, "--|>"),
+    edge(<li-h2>, <b2>, "--|>"),
+    edge(<li-h1>, <b1>, "--|>"),
   ),
-  encoding-protocol: stack(
-    dir: ttb,
-    spacing: 0.9em,
-    align(center)[state-based synchronization message],
-    stack(
-      dir: ltr,
-      spacing: 0.45em,
-      range-box([state vector\ `client -> clock`], fill: rgb("#d9eaf7")),
-      text(size: 9pt)[$arrow.r$],
-      range-box([target state], fill: rgb("#d9eaf7")),
-      text(size: 9pt)[$arrow.r$],
-      range-box([update], fill: rgb("#d9ead3")),
-      text(size: 9pt)[$arrow.r$],
-      range-box([apply / queue], fill: rgb("#f7f3ef")),
-    ),
-    table(
-      columns: (0.9fr, 2.1fr),
-      align: horizon,
-      table.header([part], [contents]),
-      [`magic`, `version`], [`"MYPEACE"`, `1`],
-      [struct blocks], [changed client count, then one column block per client],
-      [client block], [start clock, lengths, origins, content tags, string data, format data],
-      [delete set], [deleted clock ranges grouped by client],
-    ),
-    stack(
-      dir: ltr,
-      spacing: 0.4em,
-      item-box([lengths], [varints], fill: rgb("#d9eaf7")),
-      item-box([origins], [kind column + ids], fill: rgb("#d9eaf7")),
-      item-box([content], [tags + payloads], fill: rgb("#d9eaf7")),
-      item-box([deletes], [ranges], fill: rgb("#d9eaf7")),
-    ),
+  attribute-markers: diagram(
+    spacing: (0mm, 0mm),
+    edge-stroke: 0.8pt,
+
+    label-node((0mm, 0mm), text(size: 8pt)[document\ order]),
+
+    node((20mm, 0mm), item-box([h0], [`Hello`]), name: <am-h0>),
+    node((45mm, 0mm), item-box([h2], [`,`], fill: rgb("#d9ead3")), name: <am-h2>),
+    node((70mm, 0mm), item-box([h1], [`space`]), name: <am-h1>),
+    node((95mm, 0mm), item-box([h4], [`bold=true`], fill: rgb("#d9eaf7")), name: <am-h4>),
+    node((120mm, 0mm), item-box([h3], [`world`]), name: <am-h3>),
+    node((145mm, 0mm), item-box([h5], [`bold=null`], fill: rgb("#d9eaf7")), name: <am-h5>),
+
+    edge(<am-h0>, <am-h2>, "-"),
+    edge(<am-h2>, <am-h1>, "-"),
+    edge(<am-h1>, <am-h4>, "-"),
+    edge(<am-h4>, <am-h3>, "-"),
+    edge(<am-h3>, <am-h5>, "-"),
+
+    label-node((0mm, -34mm), text(size: 8pt)[shared\ byte\ buffer]),
+
+    node((22mm, -30mm), text(size: 8pt)[`[0..5)`], name: <am-b0>),
+    node((28mm, -36mm), byte-segment([`"Hello"`], width: 26mm), name: <am-seg0>),
+
+    node((47mm, -30mm), text(size: 8pt)[`[5..6)`], name: <am-b1>),
+    node((47mm, -36mm), byte-segment([`" "`], width: 12mm), name: <am-seg1>),
+
+    node((61mm, -30mm), text(size: 8pt)[`[6..11)`], name: <am-b3>),
+    node((66mm, -36mm), byte-segment([`"world"`], width: 26mm), name: <am-seg3>),
+
+    node((85mm, -30mm), text(size: 8pt)[`[11..12)`], name: <am-b2>),
+    node((85mm, -36mm), byte-segment([`","`], fill: rgb("#d9ead3"), width: 12mm), name: <am-seg2>),
+
+    node((102mm, -30mm), text(size: 8pt)[`[12..16)`], name: <am-b4-key>),
+    node((102mm, -36mm), byte-segment([`"bold"`], width: 22mm), name: <am-seg4-key>),
+
+    node((123mm, -30mm), text(size: 8pt)[`[16..20)`], name: <am-b4-value>),
+    node((123mm, -36mm), byte-segment([`"true"`], width: 20mm), name: <am-seg4-value>),
+
+    node((144mm, -30mm), text(size: 8pt)[`[20..24)`], name: <am-b5-key>),
+    node((144mm, -36mm), byte-segment([`"bold"`], width: 22mm), name: <am-seg5-key>),
+
+    edge(<am-h0>, <am-b0>, "--|>"),
+    edge(<am-h2>, <am-b2>, "--|>"),
+    edge(<am-h1>, <am-b1>, "--|>"),
+    edge(<am-h4>, <am-b4-key>, "--|>"),
+    edge(<am-h4>, <am-b4-value>, "--|>", bend: 8deg),
+    edge(<am-h3>, <am-b3>, "--|>"),
+    edge(<am-h5>, <am-b5-key>, "--|>"),
   ),
 )

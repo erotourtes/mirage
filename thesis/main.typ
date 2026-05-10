@@ -380,18 +380,18 @@ user intent in rich text editing @crdt-peritext-rich-text.
 
 = Implementation
 
-This chapter describes the implementation of text CRDT. It is inspired by Yjs
+This chapter describes the implementation of a text CRDT. It is inspired by Yjs
 and the YATA family of sequence CRDTs @crdt-yjs-paper, but it is not a direct
 port of Yjs and does not try to be compatible with the Yjs update format.
-Instead, it takes the ideas for this project and applies them to a smaller
-document model.
+Instead, it takes the ideas that are useful for this project and applies them to
+a smaller document model.
 
 This narrower scope is intentional. Yjs is a mature general-purpose shared data
 structure library with support for many document types and many production edge
-cases. While the goal of this implementation is to build a compact,
+cases. The goal of this implementation is narrower: to build a compact,
 understandable CRDT core that is sufficient for a browser-based collaborative
-editor. The implementation therefore focuses on the mechanics needed for text
-collaboration rather than on reproducing the full Yjs ecosystem.
+editor. It therefore focuses on the mechanics needed for text collaboration
+rather than on reproducing the full Yjs ecosystem.
 
 At the public API level, a document exposes a text object that can:
 
@@ -431,7 +431,7 @@ replicas can still refer to their identifiers.
 For example, after deleting the middle of a word, the internal sequence may
 still contain the deleted fragment:
 `[text "h"] -> [deleted text "ell"] -> [text "o"]`. When rendering the document,
-the algorithm walks this sequence and emits only visible items - `"ho"`.
+the algorithm walks this sequence and emits only visible items: `"ho"`.
 
 Unlike a normal string editor, this representation introduces additional storage
 overhead, but it also enables merging and versioning at the data-structure level
@@ -448,18 +448,20 @@ attributed text are derived views.
 
 == Item Identity
 
-Each item needs to have a global unique identifier. A simple way to create
-unique identities without a central coordinator is to use UUIDs. UUIDv7 is
-especially attractive because it contains a time-ordered field derived from the
-Unix epoch timestamp, which makes identifiers approximately sortable by creation
-time @uuid7. However, assigning a full UUID to every item would add 16 bytes of
-identifier metadata per item. Furthermore the timestamp is based on physical
-time, which is not a reliable source of causal ordering in distributed systems
-because of clock skew. Logical clocks are a common solution for ordering events
-in distributed systems @logical-clocks. Lamport clocks assign a logical
-timestamp to each event and can be extended with a replica identifier to obtain
-a deterministic total order ($prec$) of operations
-@lamport-time-clocks-ordering[pp. 560-562]. This order is defined as follows:
+Each item needs a globally unique identifier. One simple way to create unique
+identities without a central coordinator is to use UUIDs. UUIDv7 is especially
+attractive because it contains a time-ordered field derived from the Unix epoch
+timestamp, which makes identifiers approximately sortable by creation time
+@uuid7. However, assigning a full UUID to every item would add 16 bytes of
+identifier metadata per item. Also, physical time is not a reliable source of
+causal ordering in distributed systems because clocks can drift.
+
+Logical clocks are a common solution for ordering events in distributed systems
+@logical-clocks. Instead of asking the wall clock when an event happened, they
+count events. Lamport clocks assign a logical timestamp to each event and can be
+extended with a replica identifier to obtain a deterministic total order
+($prec$) of operations @lamport-time-clocks-ordering[pp. 560-562]. This order is
+defined as follows:
 
 $
   (a prec b) arrow.l.r.double.long (C(a) < C(b) or (C(a) = C(b) and r(a) < r(b)))
@@ -489,8 +491,8 @@ causality test. The events $x$ and $y$ have ordered timestamps, $C(x) = 1$ and
 $C(y) = 2$, but there is no chain of local steps or messages from $x$ to $y$.
 Therefore, $C(x) < C(y)$ does not prove that $x$ caused $y$.
 
-This implementation uses a related idea, but not a full global Lamport clock.
-Each item is identified by a pair `Id`:
+This implementation uses the same intuition, but not a full global Lamport
+clock. Each item is identified by a pair `Id`:
 
 ```zig
 pub const ClientId = u64;
@@ -498,11 +500,11 @@ pub const Clock = u64;
 pub const Id = struct { client: ClientId, clock: Clock, };
 ```
 
-`ClientId` identifies the replica that created the item, and `Clock` is a
-monotonically increasing counter in the `ClientId` history. This is similar to
-the #link(<g-counter-example>)[G-Counter example], where each replica advances
-only its own component, and synchronization combines knowledge about all
-clients.
+`ClientId` identifies the replica that created the item. `Clock` is a
+monotonically increasing counter inside that client's history. This is similar
+to the #link(<g-counter-example>)[G-Counter example], where each replica
+advances only its own component, and synchronization combines knowledge about
+all clients.
 
 A text item may cover more than one clock value. For example, if client `1`
 inserts `"hello"` into an empty document, the implementation can store it as one
@@ -693,17 +695,11 @@ struct store to find the local handles that contain these ids, splits items at
 the required clock boundaries when necessary, and links the remote item into the
 resulting gap.
 
-Before integrating a remote item, the implementation checks whether it is ready
-to be applied. If the item range is already known, the item is ignored. If the
-item starts after the next expected clock for that client, or if one of its
-origins is still missing, the item cannot be integrated yet. In that case, the
-update is kept as pending and retried after later successful integrations. This
-allows messages to be delivered out of order without requiring the transport
-layer to enforce a single global order.
-
-Remote operations are idempotent. Reintegrating an already known item has no
-effect, and applying the same deletion again only keeps the item deleted. This
-makes duplicate message delivery safe.
+Before integrating a remote item, the implementation checks whether the item is
+already known and whether its dependencies are available by comparing the next
+expected clock for that client; if one of its origins is still missing, it
+cannot be linked into the document yet. The synchronization layer keeps such
+updates pending and retries them later.
 
 === Concurrent Inserts
 
@@ -723,37 +719,18 @@ order, the final document order could differ between replicas, which would break
 convergence.
 
 To avoid this, the implementation uses a deterministic ordering rule defined at
-YATA paper @crdt-yjs-paper. Direct siblings inserted after the same left origin
-are ordered by `ClientId` as a tiebreaker. More complex nested conflicts are
-resolved by scanning the existing items in the origin gap and choosing the same
-conflict-free left neighbor on every replica. The goal is not to determine which
-user edited first, because concurrent operations have no reliable physical
-order. The goal is to ensure that every replica chooses the same order from the
-same set of items.
+the YATA paper @crdt-yjs-paper. The goal is not to determine which user edited
+first, because concurrent operations have no reliable physical order. The goal
+is to ensure that every replica chooses the same order from the same set of
+items.
 
 As a result, if all replicas receive the same concurrent insertions, they will
 eventually converge, even if the updates arrive in different orders.
 
-=== Remote Deletions
-
-Remote deletions use the stable id range produced by the original local
-deletion, not a visible index range. A delete message contains a client id, a
-starting clock, and a length, which identify the historical items that must be
-marked as deleted.
-
-On the receiving replica, this range is resolved through the struct store. If
-the referenced inserted items are not known yet, the deletion cannot be applied
-immediately and is kept pending. Once the items are available, the receiver
-splits boundary items if necessary and marks the corresponding range as deleted.
-
-This makes remote deletion independent of the receiver's current visible text.
-Even if replicas temporarily have different document contents or item handles,
-the same id range still refers to the same historical content.
-
 == Synchronization
 
 Synchronization is separated from the transport layer. The CRDT does not care
-whether update bytes are sent through WebRTC, WebSocket, local storage etc. The
+whether update bytes are sent through WebRTC, WebSocket, or local storage. The
 synchronization API only needs two messages: a state vector and an update.
 
 === State Vectors
@@ -804,7 +781,10 @@ Changed items are grouped by client, and their fields are written in columns
 rather than as independent records. This column-oriented layout makes repeated
 metadata easier to compress.
 
-For example, suppose one update contains `42` consecutive single-character items created by client `7`. A straightforward item-by-item encoding that stores both `ClientId` and `Clock` as fixed-width 64-bit values for every item would use $42 dot (64 + 64) / 8 = 672$ bytes just for item ids.
+For example, suppose one update contains `42` consecutive single-character items
+created by client `7`. A straightforward item-by-item encoding that stores both
+`ClientId` and `Clock` as fixed-width 64-bit values for every item would use
+$42 dot (64 + 64) / 8 = 672$ bytes just for item ids.
 
 The implementation instead writes one client block:
 
@@ -815,9 +795,15 @@ first clock: C
 item columns: ...
 ```
 
-The client id is stored once, and all items inside the block inherit that client. Their clocks are reconstructed from the first clock and the item-length column. For single-character items, the length column contains the same value repeated 42 times. This can be represented with run-length encoding as one run @rle[pp. 20-24], for example `(value: 1, run_len: 42)`.
+The client id is stored once, and all items inside the block inherit that
+client. Their clocks are reconstructed from the first clock and the item-length
+column. For single-character items, the length column contains the same value
+repeated `42` times. This can be represented with run-length encoding as one run
+@rle[pp. 20-24], for example `(value: 1, run_len: 42)`.
 
-Because small integers are compact under unsigned LEB128 encoding, this id encoding occupies around 5 bytes. The exact saving depends on the data and column overhead, so the encoder uses run-length encoding only when it is smaller than the raw varint column.
+Because small integers are compact under unsigned LEB128 encoding, the metadata
+needed to reconstruct these ids occupies around `5` bytes. The exact saving depends on the data and column overhead, so the encoder
+uses run-length encoding only when it is smaller than the raw varint column.
 
 Deletion information is encoded separately as a delete set. The delete set
 groups deleted clock ranges by client, so multiple adjacent deletions can be
@@ -839,10 +825,11 @@ It stores the update in a bounded pending-update buffer. After any later update
 is integrated successfully, pending updates are retried. Once their dependencies
 are available, they can be applied normally.
 
-This means that the transport layer does not need to provide causal delivery.
-Messages may be delayed, duplicated, or delivered in a different order from the
-one in which they were created. As long as all replicas eventually receive the
-same set of updates, the CRDT state can still converge.
+Remote operations are idempotent. Reintegrating an already known item has no
+effect, and applying the same deletion again only keeps the item deleted. This
+means that the transport layer does not need to provide causal or exactly-once
+delivery. As long as all replicas eventually
+receive the same set of updates, the CRDT state can still converge.
 
 == Rich Text Formatting
 
@@ -972,6 +959,14 @@ as Yjs or Automerge. The main limitations are:
   value. It does not provide general CRDT maps, arrays, XML-like structures,
   subdocuments, snapshots, undo management, or awareness state.
 
+- *Unicode scalar indexing.* Public indexes are based on Unicode scalar values
+  over valid UTF-8, not grapheme clusters @grapheme-clustering.
+
+- *Limited rich-text model.* Attributes are represented only as string values or
+  `null`. This is enough for simple metadata such as bold, colors, and links,
+  but it is not a complete rich-text document model. Format attribute values are
+  also duplicated in the shared buffer rather than interned in a key/value pool.
+
 - *Tombstone growth.* Deleted items remain in the structure because remote
   operations may still refer to their ids. The implementation provides
   `compact()` for some safe local cleanup, but it does not implement full CRDT
@@ -985,22 +980,14 @@ as Yjs or Automerge. The main limitations are:
   pending buffer. This prevents unbounded memory growth, but retrying is
   coarse-grained and not indexed by exact missing dependencies.
 
-- *Unicode scalar indexing.* Public indexes are based on Unicode scalar values
-  over valid UTF-8, not grapheme clusters @grapheme-clustering.
-
-- *Limited rich-text model.* Attributes are represented only as string values or
-  `null`. This is enough for simple metadata such as bold, colors, and links,
-  but it is not a complete rich-text document model. Format attribute values are
-  also duplicated in the shared buffer rather than interned in a key/value pool.
+- *Primitive position cache.* Translation from visible indexes to internal
+  positions uses only a simple last-cursor cache. This helps with nearby
+  sequential edits, but it is not a full indexing structure, so random access in
+  large documents may still require linear traversal.
 
 - *Explicit size and format checks.* Invalid UTF-8, malformed updates,
   unsupported versions, trailing bytes, and values that exceed supported integer
   ranges are rejected. Very large documents may therefore require chunking or
   application-level handling.
-
-- *Primitive position cache.* Translation from visible indexes to internal
-  positions uses only a simple last-cursor cache. This helps with nearby
-  sequential edits, but it is not a full indexing structure, so random access in
-  large documents may still require linear traversal.
 
 #bibliography("./bib.yml")

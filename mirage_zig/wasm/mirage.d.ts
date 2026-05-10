@@ -1,5 +1,6 @@
 export type ClientId = bigint | number;
 export type Clock = bigint | number;
+export type Revision = bigint | number;
 
 export type WasmPtr = number;
 export type WasmSize = number;
@@ -45,6 +46,11 @@ export interface MirageWasmExports {
    * Writes the current logical text length as a little-endian u64 to `outLenPtr`.
    */
   text_len(doc: MirageDocHandle, outLenPtr: WasmPtr): ErrorCode;
+  text_current_revision(
+    doc: MirageDocHandle,
+    outRevisionPtr: WasmPtr,
+  ): ErrorCode;
+  text_history_len(doc: MirageDocHandle, outRevisionPtr: WasmPtr): ErrorCode;
   text_insert(
     doc: MirageDocHandle,
     index: bigint,
@@ -85,6 +91,12 @@ export interface MirageWasmExports {
     outPtrPtr: WasmPtr,
     outLenPtr: WasmPtr,
   ): ErrorCode;
+  text_to_string_revision(
+    doc: MirageDocHandle,
+    revision: bigint,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
   text_encode_state_vector(
     doc: MirageDocHandle,
     outPtrPtr: WasmPtr,
@@ -108,6 +120,8 @@ export interface MirageWasmExports {
 export interface MirageDocument {
   readonly handle: MirageDocHandle;
   readonly length: bigint;
+  readonly currentRevision: bigint;
+  readonly historyLength: bigint;
 
   insert(index: Clock, text: string): void;
   insert(index: Clock, text: string, attribute: Attribute): void;
@@ -115,7 +129,7 @@ export interface MirageDocument {
   delete(index: Clock, length: Clock): void;
   compact(): void;
 
-  toString(): string;
+  toString(revision?: Revision | null): string;
   encodeStateVector(): Uint8Array;
   encodeUpdate(targetStateVector?: Uint8Array | null): Uint8Array;
   applyUpdate(update: Uint8Array): void;

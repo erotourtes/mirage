@@ -1,6 +1,60 @@
 const std = @import("std");
 const mirage = @import("mirage_lib");
 
+test "history revisions render document snapshots" {
+    var doc = mirage.Doc.init(std.testing.allocator, 99);
+    defer doc.deinit();
+
+    try std.testing.expectEqual(@as(mirage.Revision, 0), doc.text().currentRevision());
+
+    try doc.text().insert(0, "ab");
+    try std.testing.expectEqual(@as(mirage.Revision, 1), doc.text().currentRevision());
+    try doc.text().insert(2, "c");
+    try std.testing.expectEqual(@as(mirage.Revision, 2), doc.text().currentRevision());
+    try doc.text().delete(1, 1);
+    try std.testing.expectEqual(@as(mirage.Revision, 3), doc.text().historyLen());
+
+    const empty = try doc.text().toOwnedString(std.testing.allocator, 0);
+    defer std.testing.allocator.free(empty);
+    try std.testing.expectEqualStrings("", empty);
+
+    const after_first = try doc.text().toOwnedString(std.testing.allocator, 1);
+    defer std.testing.allocator.free(after_first);
+    try std.testing.expectEqualStrings("ab", after_first);
+
+    const after_second = try doc.text().toOwnedString(std.testing.allocator, 2);
+    defer std.testing.allocator.free(after_second);
+    try std.testing.expectEqualStrings("abc", after_second);
+
+    const current = try doc.text().toOwnedString(std.testing.allocator, null);
+    defer std.testing.allocator.free(current);
+    try std.testing.expectEqualStrings("ac", current);
+}
+
+test "remote update applies as one local history revision" {
+    var a = mirage.Doc.init(std.testing.allocator, 991);
+    defer a.deinit();
+    var b = mirage.Doc.init(std.testing.allocator, 992);
+    defer b.deinit();
+
+    try a.text().insertWithAttrs(0, "hi", &.{
+        .{ .key = "bold", .value = .{ .string = "true" } },
+    });
+    const update = try a.text().encodeStateAsUpdate(std.testing.allocator, null);
+    defer std.testing.allocator.free(update);
+
+    try b.text().applyUpdate(update);
+    try std.testing.expectEqual(@as(mirage.Revision, 1), b.text().currentRevision());
+
+    const empty = try b.text().toOwnedString(std.testing.allocator, 0);
+    defer std.testing.allocator.free(empty);
+    try std.testing.expectEqualStrings("", empty);
+
+    const current = try b.text().toOwnedString(std.testing.allocator, null);
+    defer std.testing.allocator.free(current);
+    try std.testing.expectEqualStrings("hi", current);
+}
+
 test "local insert at start and end renders visible text" {
     var doc = mirage.Doc.init(std.testing.allocator, 1);
     defer doc.deinit();
@@ -8,7 +62,7 @@ test "local insert at start and end renders visible text" {
     try doc.text().insert(0, "hi");
     try doc.text().insert(2, "!");
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
 
     try std.testing.expectEqualStrings("hi!", rendered);
@@ -23,7 +77,7 @@ test "insert into middle splits a string item" {
     try doc.text().insert(0, "hi");
     try doc.text().insert(1, "e");
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
 
     try std.testing.expectEqualStrings("hei", rendered);
@@ -49,7 +103,7 @@ test "compact joins safe adjacent string intervals" {
 
     try doc.text().compact();
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("hi!", rendered);
     try std.testing.expectEqual(@as(mirage.Clock, 3), mirage.debug.itemLen(doc.text(), 0));
@@ -65,7 +119,7 @@ test "delete inside one item keeps deleted item addressable" {
     try doc.text().insert(0, "hello");
     try doc.text().delete(1, 3);
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
 
     try std.testing.expectEqualStrings("ho", rendered);
@@ -84,7 +138,7 @@ test "delete range across multiple items" {
     try doc.text().insert(4, "ef");
     try doc.text().delete(1, 4);
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
 
     try std.testing.expectEqualStrings("af", rendered);
@@ -100,7 +154,7 @@ test "unicode scalar indexes split on utf8 boundaries" {
     try doc.text().insert(2, "!");
     try doc.text().delete(1, 1);
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
 
     try std.testing.expectEqualStrings("a!水", rendered);
@@ -118,7 +172,7 @@ test "state update syncs inserts between two docs" {
     defer std.testing.allocator.free(update);
     try b.text().applyUpdate(update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("hello", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -141,9 +195,9 @@ test "concurrent inserts at same position converge" {
     try a.text().applyUpdate(update_b);
     try b.text().applyUpdate(update_a);
 
-    const rendered_a = try a.text().toOwnedString(std.testing.allocator);
+    const rendered_a = try a.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_a);
-    const rendered_b = try b.text().toOwnedString(std.testing.allocator);
+    const rendered_b = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_b);
 
     try std.testing.expectEqualStrings("XY", rendered_a);
@@ -168,7 +222,7 @@ test "remote delete applies by id range" {
     defer std.testing.allocator.free(delete_update);
     try b.text().applyUpdate(delete_update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("ho", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -196,7 +250,7 @@ test "out of order diff update is pending then retried" {
     try b.text().applyUpdate(first_update);
     try std.testing.expectEqual(@as(usize, 0), mirage.debug.pendingUpdateCount(b.text()));
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("ab", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -210,7 +264,7 @@ test "insert with attributes renders attributed delta" {
         .{ .key = "bold", .value = .{ .string = "true" } },
     });
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 1), delta.ops.items.len);
@@ -230,7 +284,7 @@ test "format range inserts start and end markers" {
         .{ .key = "color", .value = .{ .string = "red" } },
     });
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 3), delta.ops.items.len);
@@ -258,11 +312,11 @@ test "rich text format items sync through updates" {
     defer std.testing.allocator.free(update);
     try b.text().applyUpdate(update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("hi", rendered);
 
-    var delta = try b.text().toDelta(std.testing.allocator);
+    var delta = try b.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), delta.ops.items.len);
     try std.testing.expectEqualStrings("hi", delta.ops.items[0].insert);
@@ -286,7 +340,7 @@ test "compact deletes redundant format markers" {
 
     try std.testing.expectEqual(@as(usize, 1), mirage.debug.liveFormatMarkerCount(doc.text(), "bold", "true"));
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), delta.ops.items.len);
     try std.testing.expectEqualStrings("hi", delta.ops.items[0].insert);
@@ -328,7 +382,7 @@ test "overlapping same-key formats restore previous value" {
         .{ .key = "color", .value = .{ .string = "blue" } },
     });
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 3), delta.ops.items.len);
@@ -351,11 +405,11 @@ test "delete across formatted region preserves surrounding format" {
     });
     try doc.text().delete(2, 2);
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("abef", rendered);
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqualStrings("a", delta.ops.items[0].insert);
@@ -378,7 +432,7 @@ test "compact removes markers around fully deleted content" {
     try doc.text().delete(0, 3);
     try doc.text().compact();
 
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("", rendered);
     try std.testing.expectEqual(@as(usize, 0), mirage.debug.liveFormatMarkerCount(doc.text(), "bold", "true"));
@@ -400,7 +454,7 @@ test "compact removes empty same-key toggles" {
     try doc.text().delete(1, 2);
     try doc.text().compact();
 
-    var delta = try doc.text().toDelta(std.testing.allocator);
+    var delta = try doc.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 1), delta.ops.items.len);
@@ -432,7 +486,7 @@ test "remote overlapping format restores previous value" {
     defer std.testing.allocator.free(second_update);
     try a.text().applyUpdate(second_update);
 
-    var delta = try a.text().toDelta(std.testing.allocator);
+    var delta = try a.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 3), delta.ops.items.len);
@@ -475,7 +529,7 @@ test "out of order overlapping format waits for base format markers" {
     try b.text().applyUpdate(red_update);
     try std.testing.expectEqual(@as(usize, 0), mirage.debug.pendingUpdateCount(b.text()));
 
-    var delta = try b.text().toDelta(std.testing.allocator);
+    var delta = try b.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 3), delta.ops.items.len);
@@ -525,13 +579,13 @@ test "concurrent same-key remote formats converge in opposite exchange orders" {
     try b2.text().applyUpdate(update_a);
     try a2.text().applyUpdate(update_b);
 
-    var delta_a1 = try a1.text().toDelta(std.testing.allocator);
+    var delta_a1 = try a1.text().toDelta(std.testing.allocator, null);
     defer delta_a1.deinit(std.testing.allocator);
-    var delta_b1 = try b1.text().toDelta(std.testing.allocator);
+    var delta_b1 = try b1.text().toDelta(std.testing.allocator, null);
     defer delta_b1.deinit(std.testing.allocator);
-    var delta_a2 = try a2.text().toDelta(std.testing.allocator);
+    var delta_a2 = try a2.text().toDelta(std.testing.allocator, null);
     defer delta_a2.deinit(std.testing.allocator);
-    var delta_b2 = try b2.text().toDelta(std.testing.allocator);
+    var delta_b2 = try b2.text().toDelta(std.testing.allocator, null);
     defer delta_b2.deinit(std.testing.allocator);
 
     try std.testing.expectEqualStrings(delta_a1.ops.items[0].attributes[0].value.string, delta_b1.ops.items[0].attributes[0].value.string);
@@ -567,16 +621,16 @@ test "concurrent delete and remote format crossing deleted range converge" {
     try a.text().applyUpdate(format_update);
     try b.text().applyUpdate(delete_update);
 
-    const rendered_a = try a.text().toOwnedString(std.testing.allocator);
+    const rendered_a = try a.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_a);
-    const rendered_b = try b.text().toOwnedString(std.testing.allocator);
+    const rendered_b = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_b);
     try std.testing.expectEqualStrings("abef", rendered_a);
     try std.testing.expectEqualStrings(rendered_a, rendered_b);
 
-    var delta_a = try a.text().toDelta(std.testing.allocator);
+    var delta_a = try a.text().toDelta(std.testing.allocator, null);
     defer delta_a.deinit(std.testing.allocator);
-    var delta_b = try b.text().toDelta(std.testing.allocator);
+    var delta_b = try b.text().toDelta(std.testing.allocator, null);
     defer delta_b.deinit(std.testing.allocator);
 
     try std.testing.expectEqualStrings("be", delta_a.ops.items[1].insert);
@@ -602,7 +656,7 @@ test "re-applying the same update is idempotent" {
     try b.text().applyUpdate(update);
     try b.text().applyUpdate(update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("h", rendered);
     try std.testing.expectEqual(@as(usize, 0), mirage.debug.pendingUpdateCount(b.text()));
@@ -630,7 +684,7 @@ test "delete-only update waits for missing inserted structs" {
     try b.text().applyUpdate(insert_update);
     try std.testing.expectEqual(@as(usize, 0), mirage.debug.pendingUpdateCount(b.text()));
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("ho", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -684,7 +738,7 @@ test "state-vector diff can start inside a string chunk" {
     defer std.testing.allocator.free(suffix_update);
     try b.text().applyUpdate(suffix_update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("abcd", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -724,13 +778,13 @@ test "updates are commutative across exchange order" {
     try b2.text().applyUpdate(update_a);
     try a2.text().applyUpdate(update_b);
 
-    const rendered_a1 = try a1.text().toOwnedString(std.testing.allocator);
+    const rendered_a1 = try a1.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_a1);
-    const rendered_b1 = try b1.text().toOwnedString(std.testing.allocator);
+    const rendered_b1 = try b1.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_b1);
-    const rendered_a2 = try a2.text().toOwnedString(std.testing.allocator);
+    const rendered_a2 = try a2.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_a2);
-    const rendered_b2 = try b2.text().toOwnedString(std.testing.allocator);
+    const rendered_b2 = try b2.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered_b2);
 
     try std.testing.expectEqualStrings(rendered_a1, rendered_b1);
@@ -785,10 +839,10 @@ test "deterministic randomized convergence across several docs" {
         }
     }
 
-    const expected = try docs[0].text().toOwnedString(std.testing.allocator);
+    const expected = try docs[0].text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(expected);
     for (&docs) |*doc| {
-        const rendered = try doc.text().toOwnedString(std.testing.allocator);
+        const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
         defer std.testing.allocator.free(rendered);
         try std.testing.expectEqualStrings(expected, rendered);
         try std.testing.expectEqual(@as(usize, 0), mirage.debug.pendingUpdateCount(doc.text()));

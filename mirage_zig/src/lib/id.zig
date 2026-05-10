@@ -9,6 +9,9 @@ pub const TextIndex = u64;
 /// A visible Unicode scalar length in the text document.
 pub const TextLen = u64;
 
+/// A document-local history revision.
+pub const Revision = u64;
+
 pub const Id = struct {
     client: ClientId,
     clock: Clock,

@@ -80,6 +80,12 @@ pub const TextImpl = struct {
     pending_updates: std.ArrayList([]u8) = .empty,
     pending_update_bytes: usize = 0,
     position_cursor: ?Position = null,
+    /// Latest completed document-local history number
+    /// Each mutation operation bumps it
+    current_revision: id.Revision = 0,
+    /// Temporary field, to let multiple internal items share the same revision
+    /// E.g formatting items
+    active_revision: ?id.Revision = null,
 
     pub fn init(allocator: std.mem.Allocator, client_id: id.ClientId) TextImpl {
         return .{
@@ -103,12 +109,21 @@ pub const TextImpl = struct {
         return self.length;
     }
 
+    pub fn currentRevision(self: *const TextImpl) id.Revision {
+        return self.current_revision;
+    }
+
+    pub fn historyLen(self: *const TextImpl) id.Revision {
+        return self.current_revision;
+    }
+
     /// Inserts into the visible character index
     pub fn insert(self: *TextImpl, index: id.TextIndex, bytes: []const u8) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
         const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return;
 
+        defer self.finishRevision();
         const pos = try self.findPosition(index);
         _ = try self.insertStringAt(pos, bytes);
     }
@@ -129,6 +144,7 @@ pub const TextImpl = struct {
         const logical_len = try utf.countUnicodeLen(bytes);
         if (logical_len == 0) return;
 
+        defer self.finishRevision();
         var pos = try self.findPosition(index);
         for (attributes) |attribute| {
             const marker = try self.insertFormatAt(pos, attribute);
@@ -155,6 +171,7 @@ pub const TextImpl = struct {
         if (format_len > self.length - index) return error.IndexOutOfBounds;
         if (format_len == 0 or attributes.len == 0) return;
 
+        defer self.finishRevision();
         const restore_attributes = try formatting.findRestoreAttr(
             self,
             self.allocator,
@@ -202,6 +219,7 @@ pub const TextImpl = struct {
                 .countable = true,
                 .deleted = false,
             },
+            .inserted_revision = self.mutationRevision(),
         });
 
         try self.store.addStruct(self.allocator, self.items.items, handle);
@@ -231,6 +249,7 @@ pub const TextImpl = struct {
                 .countable = false,
                 .deleted = false,
             },
+            .inserted_revision = self.mutationRevision(),
         });
 
         try self.store.addStruct(self.allocator, self.items.items, handle);
@@ -248,6 +267,7 @@ pub const TextImpl = struct {
         if (delete_len > self.length - index) return error.IndexOutOfBounds;
         if (delete_len == 0) return;
 
+        defer self.finishRevision();
         var pos = try self.findPosition(index);
         var remaining = delete_len;
         while (remaining > 0) {
@@ -278,6 +298,7 @@ pub const TextImpl = struct {
     }
 
     pub fn compact(self: *TextImpl) TextError!void {
+        defer self.finishRevision();
         try self.cleanupFormatting();
         try self.mergeAdjacentStringItems();
         self.invalidatePositionCursor();
@@ -312,7 +333,11 @@ pub const TextImpl = struct {
         try self.retryPendingUpdates();
     }
 
-    pub fn toOwnedString(self: *const TextImpl, allocator: std.mem.Allocator) TextError![]u8 {
+    pub fn toOwnedString(
+        self: *const TextImpl,
+        allocator: std.mem.Allocator,
+        revision: ?id.Revision,
+    ) TextError![]u8 {
         var out: std.ArrayList(u8) = .empty;
         errdefer out.deinit(allocator);
 
@@ -320,8 +345,7 @@ pub const TextImpl = struct {
         while (cursor) |handle| {
             const current = self.items.items[handle];
             defer cursor = current.right;
-            const is_visible = !current.flags.deleted and current.flags.countable;
-            if (!is_visible)
+            if (!self.isItemVisibleAt(handle, revision))
                 continue;
 
             switch (current.content) {
@@ -332,8 +356,12 @@ pub const TextImpl = struct {
         return try out.toOwnedSlice(allocator);
     }
 
-    pub fn toDelta(self: *const TextImpl, allocator: std.mem.Allocator) TextError!attrs.Delta {
-        return try delta_mod.toDelta(self, allocator);
+    pub fn toDelta(
+        self: *const TextImpl,
+        allocator: std.mem.Allocator,
+        revision: ?id.Revision,
+    ) TextError!attrs.Delta {
+        return try delta_mod.toDelta(self, allocator, revision);
     }
 
     fn encodeView(self: *const TextImpl) sync.EncodeView {
@@ -505,11 +533,35 @@ pub const TextImpl = struct {
         self.position_cursor = null;
     }
 
+    pub fn mutationRevision(self: *TextImpl) id.Revision {
+        if (self.active_revision) |revision| return revision;
+        self.current_revision += 1;
+        self.active_revision = self.current_revision;
+        return self.current_revision;
+    }
+
+    fn finishRevision(self: *TextImpl) void {
+        self.active_revision = null;
+    }
+
+    pub fn isItemAliveAt(self: *const TextImpl, handle: item_mod.ItemHandle, revision: ?id.Revision) bool {
+        const current = self.items.items[handle];
+        const target_revision = revision orelse return !current.flags.deleted;
+        return current.inserted_revision <= target_revision and
+            (current.deleted_revision == null or current.deleted_revision.? > target_revision);
+    }
+
+    pub fn isItemVisibleAt(self: *const TextImpl, handle: item_mod.ItemHandle, revision: ?id.Revision) bool {
+        const current = self.items.items[handle];
+        return current.flags.countable and self.isItemAliveAt(handle, revision);
+    }
+
     pub fn markDeleted(self: *TextImpl, handle: item_mod.ItemHandle) TextError!bool {
         if (self.items.items[handle].flags.deleted) return false;
 
         const current = self.items.items[handle];
         self.items.items[handle].flags.deleted = true;
+        self.items.items[handle].deleted_revision = self.mutationRevision();
         try self.store.addDeletedRange(
             self.allocator,
             current.id.client,
@@ -568,6 +620,8 @@ pub const TextImpl = struct {
                 .logical_len = right_len,
             } },
             .flags = left_snapshot.flags,
+            .inserted_revision = left_snapshot.inserted_revision,
+            .deleted_revision = left_snapshot.deleted_revision,
         });
 
         self.items.items[handle].right = right_handle;
@@ -662,6 +716,7 @@ pub const TextImpl = struct {
 
         // TODO: this marks item as a dead slot
         self.items.items[right_handle].flags.deleted = true;
+        self.items.items[right_handle].deleted_revision = self.mutationRevision();
         self.items.items[right_handle].left = null;
         self.items.items[right_handle].right = null;
         try self.store.removeStruct(self.items.items, right_handle);
@@ -687,6 +742,7 @@ pub const TextImpl = struct {
 
     fn applyUpdateOnce(self: *TextImpl, update: []const u8) TextError!void {
         try sync.validateUpdateBytes(update);
+        defer self.finishRevision();
 
         const callbacks = struct {
             const Context = struct {

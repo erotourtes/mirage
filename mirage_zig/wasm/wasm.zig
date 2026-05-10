@@ -46,6 +46,24 @@ export fn text_len(doc_handle: usize, out_len_addr: usize) u32 {
     return ok();
 }
 
+export fn text_current_revision(doc_handle: usize, out_revision_addr: usize) u32 {
+    if (out_revision_addr == 0) return fail(.invalid_input);
+    writeU64(out_revision_addr, 0);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    writeU64(out_revision_addr, doc.text().currentRevision());
+    return ok();
+}
+
+export fn text_history_len(doc_handle: usize, out_revision_addr: usize) u32 {
+    if (out_revision_addr == 0) return fail(.invalid_input);
+    writeU64(out_revision_addr, 0);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    writeU64(out_revision_addr, doc.text().historyLen());
+    return ok();
+}
+
 export fn text_insert(doc_handle: usize, index: u64, ptr: usize, len: usize) u32 {
     const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
     const text = inputBytes(ptr, len) catch return fail(.invalid_input);
@@ -103,7 +121,16 @@ export fn text_to_string(doc_handle: usize, out_ptr_addr: usize, out_len_addr: u
     clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
 
     const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
-    const rendered = doc.text().toOwnedString(allocator()) catch return fail(.operation_failed);
+    const rendered = doc.text().toOwnedString(allocator(), null) catch return fail(.operation_failed);
+    writeResult(out_ptr_addr, out_len_addr, rendered);
+    return ok();
+}
+
+export fn text_to_string_revision(doc_handle: usize, revision: u64, out_ptr_addr: usize, out_len_addr: usize) u32 {
+    clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    const rendered = doc.text().toOwnedString(allocator(), revision) catch return fail(.operation_failed);
     writeResult(out_ptr_addr, out_len_addr, rendered);
     return ok();
 }

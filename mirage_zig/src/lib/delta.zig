@@ -3,7 +3,11 @@ const attrs = @import("attrs.zig");
 const formatting = @import("formatting.zig");
 const text_mod = @import("text/impl.zig");
 
-pub fn toDelta(text: *const text_mod.TextImpl, allocator: std.mem.Allocator) !attrs.Delta {
+pub fn toDelta(
+    text: *const text_mod.TextImpl,
+    allocator: std.mem.Allocator,
+    revision: ?id.Revision,
+) !attrs.Delta {
     var delta: attrs.Delta = .{};
     errdefer delta.deinit(allocator);
 
@@ -15,9 +19,8 @@ pub fn toDelta(text: *const text_mod.TextImpl, allocator: std.mem.Allocator) !at
         const current = text.items.items[handle];
         defer cursor = current.right;
 
-        if (current.flags.deleted) {
+        if (!text.isItemAliveAt(handle, revision))
             continue;
-        }
 
         switch (current.content) {
             .format => |format_slice| try formatting.updateActiveAttrs(text, allocator, &active_attrs, format_slice),
@@ -101,7 +104,7 @@ test "toDelta produces correct delta for simple text with attributes" {
         .value = .{ .string = "true" },
     }});
 
-    var delta = try toDelta(&text, allocator);
+    var delta = try toDelta(&text, allocator, null);
     defer delta.deinit(allocator);
 
     try expectEqual(delta.ops.items.len, 2);
@@ -129,7 +132,7 @@ test "toDelta should merge repeated attributes" {
         .value = .{ .string = "red" },
     }});
 
-    var delta = try toDelta(&text, allocator);
+    var delta = try toDelta(&text, allocator, null);
     defer delta.deinit(allocator);
 
     try expectEqual(delta.ops.items.len, 1);

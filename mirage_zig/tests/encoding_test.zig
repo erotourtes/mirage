@@ -62,7 +62,7 @@ test "malformed updates are rejected without corrupting state" {
     try std.testing.expectError(error.InvalidUpdate, doc.text().applyUpdate("not-an-update"));
 
     try mirage.debug.checkIntegrity(doc.text());
-    const rendered = try doc.text().toOwnedString(std.testing.allocator);
+    const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("", rendered);
 }
@@ -86,7 +86,7 @@ test "truncated and trailing update bytes are rejected" {
     try std.testing.expectError(error.TrailingBytes, b.text().applyUpdate(trailing));
 
     try mirage.debug.checkIntegrity(b.text());
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("", rendered);
 }
@@ -106,11 +106,11 @@ test "string and format markers round trip through update" {
     defer std.testing.allocator.free(update);
     try b.text().applyUpdate(update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("hé水", rendered);
 
-    var delta = try b.text().toDelta(std.testing.allocator);
+    var delta = try b.text().toDelta(std.testing.allocator, null);
     defer delta.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 2), delta.ops.items.len);
     try std.testing.expectEqualStrings("h", delta.ops.items[0].insert);
@@ -132,7 +132,7 @@ test "delete set round trips through full update" {
     defer std.testing.allocator.free(update);
     try b.text().applyUpdate(update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("ho", rendered);
     try mirage.debug.checkIntegrity(b.text());
@@ -157,7 +157,7 @@ test "state vector diff round trips string suffix" {
     defer std.testing.allocator.free(diff_update);
     try b.text().applyUpdate(diff_update);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("abcd", rendered);
 }
@@ -181,7 +181,7 @@ test "diff update includes known delete sets by policy" {
     defer std.testing.allocator.free(delete_diff);
     try b.text().applyUpdate(delete_diff);
 
-    const rendered = try b.text().toOwnedString(std.testing.allocator);
+    const rendered = try b.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings("ho", rendered);
 }
@@ -211,7 +211,7 @@ test "encodes and decodes 42 consecutive single-character items created by clien
     defer decoded.deinit();
     try decoded.text().applyUpdate(update);
 
-    const rendered = try decoded.text().toOwnedString(std.testing.allocator);
+    const rendered = try decoded.text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(rendered);
     try std.testing.expectEqualStrings(text, rendered);
 }

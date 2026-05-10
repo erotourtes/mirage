@@ -50,6 +50,8 @@ pub const Item = struct {
     content: Content,
 
     flags: ItemFlags,
+    inserted_revision: id.Revision = 0,
+    deleted_revision: ?id.Revision = null,
 
     /// Returns how many Clock ticks this item occupies
     /// For text content, it's equal to number of visible characters

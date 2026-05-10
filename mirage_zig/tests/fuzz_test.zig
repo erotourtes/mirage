@@ -270,11 +270,11 @@ fn finalFullSync(docs: []mirage.Doc) TraceError!void {
 }
 
 fn expectConverged(docs: []mirage.Doc) TraceError!void {
-    const expected = try docs[0].text().toOwnedString(std.testing.allocator);
+    const expected = try docs[0].text().toOwnedString(std.testing.allocator, null);
     defer std.testing.allocator.free(expected);
 
     for (docs) |*doc| {
-        const rendered = try doc.text().toOwnedString(std.testing.allocator);
+        const rendered = try doc.text().toOwnedString(std.testing.allocator, null);
         defer std.testing.allocator.free(rendered);
         if (!std.mem.eql(u8, expected, rendered)) return error.Diverged;
         if (mirage.debug.pendingUpdateCount(doc.text()) != 0) return error.PendingUpdatesRemain;

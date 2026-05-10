@@ -38,6 +38,16 @@ pub const Text = struct {
         return self.impl.len();
     }
 
+    /// Returns the latest document-local history revision.
+    pub fn currentRevision(self: *const Text) id.Revision {
+        return self.impl.currentRevision();
+    }
+
+    /// Returns the number of document-local history revisions.
+    pub fn historyLen(self: *const Text) id.Revision {
+        return self.impl.historyLen();
+    }
+
     /// Inserts valid UTF-8 bytes at `index`.
     ///
     /// `index` is a Unicode scalar index. Empty text is a no-op. `bytes` are
@@ -80,7 +90,8 @@ pub const Text = struct {
     /// Prunes redundant formatting markers and joins safe adjacent text structs.
     ///
     /// Editing operations do not run this automatically; call it when a cleaner
-    /// internal structure is worth the extra work.
+    /// internal structure is worth the extra work. Historical snapshots before
+    /// compaction are not guaranteed to remain exact after this runs.
     pub fn compact(self: *Text) TextError!void {
         try self.impl.compact();
     }
@@ -115,18 +126,32 @@ pub const Text = struct {
 
     /// Renders the visible document text as owned UTF-8 bytes.
     ///
+    /// Pass `null` for the current state, or a document-local revision returned
+    /// by `currentRevision`/`historyLen` for a best-effort historical snapshot.
+    ///
     /// The returned byte slice is allocated with `allocator` and must be freed
     /// by the caller.
-    pub fn toOwnedString(self: *const Text, allocator: std.mem.Allocator) TextError![]u8 {
-        return try self.impl.toOwnedString(allocator);
+    pub fn toOwnedString(
+        self: *const Text,
+        allocator: std.mem.Allocator,
+        revision: ?id.Revision,
+    ) TextError![]u8 {
+        return try self.impl.toOwnedString(allocator, revision);
     }
 
     /// Renders the document as attributed insert operations.
     ///
+    /// Pass `null` for the current state, or a document-local revision returned
+    /// by `currentRevision`/`historyLen` for a best-effort historical snapshot.
+    ///
     /// The returned delta owns all inserted strings and copied attributes. Call
     /// `Delta.deinit` with the same allocator when done.
-    pub fn toDelta(self: *const Text, allocator: std.mem.Allocator) TextError!attrs.Delta {
-        return try self.impl.toDelta(allocator);
+    pub fn toDelta(
+        self: *const Text,
+        allocator: std.mem.Allocator,
+        revision: ?id.Revision,
+    ) TextError!attrs.Delta {
+        return try self.impl.toDelta(allocator, revision);
     }
 };
 

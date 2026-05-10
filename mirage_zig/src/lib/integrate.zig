@@ -104,6 +104,7 @@ pub fn item(text: *text_mod.TextImpl, remote: RemoteItem) !void {
             .countable = remote.content == .string,
             .deleted = false,
         },
+        .inserted_revision = text.mutationRevision(),
     });
 
     try text.store.addStruct(text.allocator, text.items.items, handle);

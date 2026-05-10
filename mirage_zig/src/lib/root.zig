@@ -10,6 +10,7 @@ pub const ClientId = id.ClientId;
 pub const Clock = id.Clock;
 pub const TextIndex = id.TextIndex;
 pub const TextLen = id.TextLen;
+pub const Revision = id.Revision;
 pub const Id = id.Id;
 
 pub const ItemHandle = item.ItemHandle;

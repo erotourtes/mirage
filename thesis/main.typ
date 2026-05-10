@@ -732,4 +732,6 @@ The implementation is intentionally narrower than production CRDT libraries such
 
 - *Explicit size and format checks.* Invalid UTF-8, malformed updates, unsupported versions, trailing bytes, and values that exceed supported integer ranges are rejected. Very large documents may therefore require chunking or application-level handling.
 
+- *Primitive position cache.* Translation from visible indexes to internal positions uses only a simple last-cursor cache. This helps with nearby sequential edits, but it is not a full indexing structure, so random access in large documents may still require linear traversal.
+
 #bibliography("./bib.yml")

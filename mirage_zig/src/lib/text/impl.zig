@@ -266,8 +266,7 @@ pub const TextImpl = struct {
 
             const delete_handle = handle;
             const deleted_len = self.items.items[delete_handle].getClockLen();
-            self.items.items[delete_handle].flags.deleted = true;
-            self.length -= deleted_len;
+            _ = try self.markDeleted(delete_handle);
             remaining -= deleted_len;
             pos = .{
                 .index = index,
@@ -504,6 +503,25 @@ pub const TextImpl = struct {
 
     pub fn invalidatePositionCursor(self: *TextImpl) void {
         self.position_cursor = null;
+    }
+
+    pub fn markDeleted(self: *TextImpl, handle: item_mod.ItemHandle) TextError!bool {
+        if (self.items.items[handle].flags.deleted) return false;
+
+        const current = self.items.items[handle];
+        self.items.items[handle].flags.deleted = true;
+        try self.store.addDeletedRange(
+            self.allocator,
+            current.id.client,
+            current.id.clock,
+            current.getClockLen(),
+        );
+
+        if (current.flags.countable) {
+            self.length -= current.getClockLen();
+            self.invalidatePositionCursor();
+        }
+        return true;
     }
 
     /// Splits the item at the given offset (in visible characters).

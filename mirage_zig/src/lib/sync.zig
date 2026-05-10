@@ -3,7 +3,6 @@ const id = @import("id.zig");
 const item_mod = @import("item.zig");
 const store_mod = @import("store.zig");
 const encoding = @import("encoding.zig");
-const delete_set_mod = @import("delete_set.zig");
 const utf = @import("utf.zig");
 const attrs = @import("attrs.zig");
 
@@ -602,35 +601,13 @@ test "findStructAfterClock returns correct index" {
     try expectEqual(null, firstStructAfterClock(items, handles, 15));
 }
 
-// Writes the whole delete set
-// TODO: cache the delete set in the store and write only the delta
+/// Writes the cached delete set.
+/// TODO: State vectors don't currently describe which
+/// deletes the peer already knows, so updates still include the full set.
 fn writeDeleteSet(view: EncodeView, enc: *encoding.Encoder) Error!void {
-    var ds: delete_set_mod.DeleteSet = .{};
-    defer ds.deinit(view.allocator);
-
-    // Collect all deleted items
-    for (view.store.clients.keys(), view.store.clients.values()) |client, client_structs| {
-        var active_start: ?id.Clock = null;
-        var active_len: id.Clock = 0;
-        for (client_structs.items.items) |handle| {
-            const current = view.items[handle];
-            if (current.flags.deleted) {
-                if (active_start == null) active_start = current.id.clock;
-                active_len += current.getClockLen();
-            } else if (active_start) |start_clock| {
-                try ds.add(view.allocator, client, start_clock, active_len);
-                active_start = null;
-                active_len = 0;
-            }
-        }
-        if (active_start) |start_clock| {
-            try ds.add(view.allocator, client, start_clock, active_len);
-        }
-    }
-    ds.sortAndMerge();
-
-    try enc.writeVarU64(ds.clients.count());
-    for (ds.clients.keys(), ds.clients.values()) |client, deletes| {
+    const delete_set = &view.store.delete_set;
+    try enc.writeVarU64(delete_set.clients.count());
+    for (delete_set.clients.keys(), delete_set.clients.values()) |client, deletes| {
         try enc.writeVarU64(client);
         try enc.writeVarU64(deletes.items.len);
         for (deletes.items) |delete_item| {

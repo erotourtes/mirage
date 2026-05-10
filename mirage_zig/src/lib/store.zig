@@ -1,6 +1,7 @@
 const std = @import("std");
 const id = @import("id.zig");
 const item = @import("item.zig");
+const delete_set = @import("delete_set.zig");
 
 pub const StoreError = error{
     ClockGap,
@@ -21,12 +22,14 @@ pub const ClientStructs = struct {
 
 pub const StructStore = struct {
     clients: std.array_hash_map.Auto(id.ClientId, ClientStructs) = .empty,
+    delete_set: delete_set.DeleteSet = .{},
 
     pub fn deinit(self: *StructStore, allocator: std.mem.Allocator) void {
         for (self.clients.values()) |*client_structs| {
             client_structs.deinit(allocator);
         }
         self.clients.deinit(allocator);
+        self.delete_set.deinit(allocator);
         self.* = undefined;
     }
 
@@ -84,6 +87,16 @@ pub const StructStore = struct {
         var structs = &self.clients.values()[index].items;
         const remove_index = try findHandleIndex(structs.items, handle);
         _ = structs.orderedRemove(remove_index);
+    }
+
+    pub fn addDeletedRange(
+        self: *StructStore,
+        allocator: std.mem.Allocator,
+        client: id.ClientId,
+        clock: id.Clock,
+        len: id.Clock,
+    ) !void {
+        try self.delete_set.add(allocator, client, clock, len);
     }
 
     pub fn findHandleById(

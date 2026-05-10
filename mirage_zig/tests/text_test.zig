@@ -294,6 +294,28 @@ test "compact deletes redundant format markers" {
     try mirage.debug.checkIntegrity(doc.text());
 }
 
+test "compact format marker deletes sync through cached delete set" {
+    var a = mirage.Doc.init(std.testing.allocator, 411);
+    defer a.deinit();
+    var b = mirage.Doc.init(std.testing.allocator, 412);
+    defer b.deinit();
+
+    try a.text().insertWithAttrs(0, "hi", &.{
+        .{ .key = "bold", .value = .{ .string = "true" } },
+    });
+    try a.text().format(0, 2, &.{
+        .{ .key = "bold", .value = .{ .string = "true" } },
+    });
+    try a.text().compact();
+
+    const update = try a.text().encodeStateAsUpdate(std.testing.allocator, null);
+    defer std.testing.allocator.free(update);
+    try b.text().applyUpdate(update);
+
+    try std.testing.expectEqual(@as(usize, 1), mirage.debug.liveFormatMarkerCount(b.text(), "bold", "true"));
+    try mirage.debug.checkIntegrity(b.text());
+}
+
 test "overlapping same-key formats restore previous value" {
     var doc = mirage.Doc.init(std.testing.allocator, 42);
     defer doc.deinit();

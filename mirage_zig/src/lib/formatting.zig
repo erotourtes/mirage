@@ -49,12 +49,12 @@ pub fn cleanup(text: *text_mod.TextImpl) !void {
                 const key = text.attributeKeyBytes(format_slice);
                 // same-key pending format already exists, and we didn't reach any visible text
                 if (findPendingFormatIndex(pending_formats.items, key)) |pending_index| {
-                    deleteFormatMarker(text, pending_formats.items[pending_index].handle);
+                    try deleteFormatMarker(text, pending_formats.items[pending_index].handle);
                     _ = pending_formats.orderedRemove(pending_index);
                 }
 
                 if (checkIfFormatIsRedundant(text, active_attrs.items, format_slice)) {
-                    deleteFormatMarker(text, handle);
+                    try deleteFormatMarker(text, handle);
                     continue;
                 }
                 try pending_formats.append(text.allocator, .{
@@ -66,7 +66,7 @@ pub fn cleanup(text: *text_mod.TextImpl) !void {
     }
 
     for (pending_formats.items) |pending| {
-        deleteFormatMarker(text, pending.handle);
+        try deleteFormatMarker(text, pending.handle);
     }
 }
 
@@ -89,9 +89,8 @@ fn findPendingFormatIndex(pending_formats: []const PendingFormat, key: []const u
     return null;
 }
 
-fn deleteFormatMarker(text: *text_mod.TextImpl, handle: item_mod.ItemHandle) void {
-    text.items.items[handle].flags.deleted = true;
-    text.invalidatePositionCursor();
+fn deleteFormatMarker(text: *text_mod.TextImpl, handle: item_mod.ItemHandle) !void {
+    _ = try text.markDeleted(handle);
 }
 
 ///           01234

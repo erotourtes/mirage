@@ -129,13 +129,7 @@ pub fn deletedRange(text: *text_mod.TextImpl, remote: RemoteDeleteRange) !void {
         if (current.id.clock >= end_clock) break;
         if (current.id.clock + current.getClockLen() <= remote.clock) continue;
 
-        if (!text.items.items[handle].flags.deleted) {
-            text.items.items[handle].flags.deleted = true;
-            if (text.items.items[handle].flags.countable) {
-                text.invalidatePositionCursor();
-                text.length -= text.items.items[handle].getClockLen();
-            }
-        }
+        _ = try text.markDeleted(handle);
     }
 }
 

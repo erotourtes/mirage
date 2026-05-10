@@ -27,7 +27,8 @@ pub const DeleteSet = struct {
         if (len == 0) return;
         const result = try self.clients.getOrPut(allocator, client);
         if (!result.found_existing) result.value_ptr.* = .empty;
-        try result.value_ptr.append(allocator, .{ .clock = clock, .len = len });
+
+        try addMerged(allocator, result.value_ptr, .{ .clock = clock, .len = len });
     }
 
     pub fn sortAndMerge(self: *DeleteSet) void {
@@ -36,6 +37,37 @@ pub const DeleteSet = struct {
         }
     }
 };
+
+fn addMerged(allocator: std.mem.Allocator, items: *std.ArrayList(DeleteItem), next: DeleteItem) !void {
+    var start = next.clock;
+    var end = next.clock + next.len;
+
+    var index: usize = 0;
+    while (index < items.items.len) : (index += 1) {
+        const current = items.items[index];
+        if (current.clock + current.len >= start) break;
+    }
+
+    var merged_until = index;
+    while (merged_until < items.items.len) : (merged_until += 1) {
+        const current = items.items[merged_until];
+        if (current.clock > end) break;
+        start = @min(start, current.clock);
+        end = @max(end, current.clock + current.len);
+    }
+
+    const merged = DeleteItem{ .clock = start, .len = end - start };
+    if (merged_until == index) {
+        try items.insert(allocator, index, merged);
+        return;
+    }
+
+    items.items[index] = merged;
+    var remove_count = merged_until - index - 1;
+    while (remove_count > 0) : (remove_count -= 1) {
+        _ = items.orderedRemove(index + 1);
+    }
+}
 
 fn sortAndMergeClient(items: *std.ArrayList(DeleteItem)) void {
     std.mem.sort(DeleteItem, items.items, {}, lessThan);
@@ -128,4 +160,23 @@ test "DeleteSet sortAndMerge all" {
     try expectEqual(deletes.items.len, 1);
     try expectEqual(deletes.items[0].clock, 0);
     try expectEqual(deletes.items[0].len, 10);
+}
+
+test "DeleteSet add keeps ranges sorted and merged" {
+    const allocator = std.testing.allocator;
+    var ds = DeleteSet{};
+    defer ds.deinit(allocator);
+
+    try ds.add(allocator, 1, 10, 2);
+    try ds.add(allocator, 1, 0, 3);
+    try ds.add(allocator, 1, 5, 2);
+    try ds.add(allocator, 1, 3, 2);
+    try ds.add(allocator, 1, 12, 1);
+
+    const deletes = ds.clients.get(1) orelse unreachable;
+    try expectEqual(deletes.items.len, 2);
+    try expectEqual(deletes.items[0].clock, 0);
+    try expectEqual(deletes.items[0].len, 7);
+    try expectEqual(deletes.items[1].clock, 10);
+    try expectEqual(deletes.items[1].len, 3);
 }

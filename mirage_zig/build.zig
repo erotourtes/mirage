@@ -130,6 +130,12 @@ fn addTests(
         std.debug.print("failed to add discovered tests: {}\n", .{err});
         @panic("Failed to add discovered tests");
     };
+    addDiscoveredEditorTests(b, target, optimize, "tests", "_test.zig", &.{
+        .{ .name = "mirage_lib", .module = mod },
+    }) catch |err| {
+        std.debug.print("failed to add editor test modules: {}\n", .{err});
+        @panic("Failed to add editor test modules");
+    };
 
     return test_step;
 }
@@ -281,6 +287,61 @@ fn appendDiscoveredImports(
                     entry_path[base_path.len + 1 ..];
                 const import_line = try std.fmt.allocPrint(b.allocator, "    _ = @import(\"{s}\");\n", .{import_path});
                 try contents.appendSlice(b.allocator, import_line);
+            },
+            else => continue,
+        }
+    }
+}
+
+fn addDiscoveredEditorTests(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    dir_path: []const u8,
+    suffix: []const u8,
+    imports: []const std.Build.Module.Import,
+) !void {
+    const editor_step = b.step("zls-tests", "Expose standalone test files to ZLS");
+    try addDiscoveredEditorTestsRecursive(b, target, optimize, editor_step, dir_path, suffix, imports);
+}
+
+fn addDiscoveredEditorTestsRecursive(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    editor_step: *std.Build.Step,
+    dir_path: []const u8,
+    suffix: []const u8,
+    imports: []const std.Build.Module.Import,
+) !void {
+    const io = b.graph.io;
+    var dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return,
+        else => return err,
+    };
+    defer dir.close(io);
+
+    var iter = dir.iterate();
+    while (try iter.next(io)) |entry| {
+        const entry_path = std.fs.path.join(b.allocator, &.{ dir_path, entry.name }) catch @panic("failed to allocate test path");
+
+        switch (entry.kind) {
+            .directory => {
+                try addDiscoveredEditorTestsRecursive(b, target, optimize, editor_step, entry_path, suffix, imports);
+            },
+            .file => {
+                if (!std.mem.endsWith(u8, entry.name, suffix)) continue;
+
+                const test_artifact = b.addTest(.{
+                    .name = b.fmt("zls_{s}", .{entry.name}),
+                    .root_module = b.createModule(.{
+                        .root_source_file = b.path(entry_path),
+                        .target = target,
+                        .optimize = optimize,
+                        .imports = imports,
+                    }),
+                });
+                editor_step.dependOn(&test_artifact.step);
             },
             else => continue,
         }

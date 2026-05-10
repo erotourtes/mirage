@@ -39,7 +39,7 @@
   let parts = title.split(". ")
   if parts.len() > 1 {
     [#parts.first()\
-    #parts.slice(1).join(". ")]
+      #parts.slice(1).join(". ")]
   } else {
     [#title]
   }
@@ -64,8 +64,7 @@
       level: 1,
       numbering: none,
       body: upper(title),
-    )) #report_labels.header
-    #metadata((
+    )) #report_labels.header #metadata((
       level: 1,
       numbering: none,
       body: title,

@@ -1,13 +1,15 @@
-#import "../lib/lib.typ": (
-  gendered, signature_field, under_field, year_field,
-)
+#import "../lib/lib.typ": gendered, signature_field, under_field, year_field
 #import "../lib/page.typ": cover_page
 
 #let default_title_meta = (
-  university_line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ “КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО”],
-  faculty: [Факультет інформатики та обчислювальної техніки\ Кафедра обчислювальної техніки],
+  university_line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ “КИЇВСЬКИЙ
+    ПОЛІТЕХНІЧНИЙ ІНСТИТУТ\ імені ІГОРЯ СІКОРСЬКОГО”],
+  faculty: [Факультет інформатики та обчислювальної техніки\ Кафедра
+    обчислювальної техніки],
   project_kind: [Дипломний проєкт],
-  degree_line: [на здобуття ступеня бакалавра\ за освітньо-професійною програмою “Інженерія програмного забезпечення\ комп’ютерних систем”\ спеціальності 121 “Інженерія програмного забезпечення”],
+  degree_line: [на здобуття ступеня бакалавра\ за освітньо-професійною програмою
+    “Інженерія програмного забезпечення\ комп’ютерних систем”\ спеціальності 121
+    “Інженерія програмного забезпечення”],
 )
 
 #let title_page(
@@ -67,8 +69,16 @@
         spacing: 14pt,
         [#text[на тему:] #under_field()[#topic]],
         [
-          #gendered(male: [Виконав], female: [Виконала], is_female: student_female):
-          #gendered(male: [студент], female: [студентка], is_female: student_female)
+          #gendered(
+            male: [Виконав],
+            female: [Виконала],
+            is_female: student_female,
+          ):
+          #gendered(
+            male: [студент],
+            female: [студентка],
+            is_female: student_female,
+          )
           #under_field(width: 7mm)[#student_course]
           курсу, групи
           #under_field(width: 20mm, caption: [(шифр групи)])[#student_group]
@@ -93,7 +103,8 @@
             [
               #under_field(
                 width: 100%,
-                caption: [(посада, науковий ступінь, вчене звання, прізвище та ініціали)],
+                caption: [(посада, науковий ступінь, вчене звання, прізвище та
+                  ініціали)],
               )[#advisor_name]
             ],
             [],
@@ -109,7 +120,8 @@
             [
               #under_field(
                 width: 100%,
-                caption: [(посада, вчене звання, науковий ступінь, прізвище та ініціали)],
+                caption: [(посада, вчене звання, науковий ступінь, прізвище та
+                  ініціали)],
                 caption_width: 220pt,
                 caption_dx: -15pt,
               )[#consultant_name]
@@ -125,7 +137,8 @@
             [Рецензент],
             [
               #under_field(
-                caption: [(посада, науковий ступінь, вчене звання, прізвище та ініціали)],
+                caption: [(посада, науковий ступінь, вчене звання, прізвище та
+                  ініціали)],
                 width: 100%,
               )[#reviewer_name]
             ],
@@ -139,14 +152,17 @@
       #align(right)[
         #block(width: 85mm)[
           #align(left)[
-            Засвідчую, що у цьому дипломному проєкті
-            немає запозичень з праць інших авторів без
-            відповідних посилань.
+            Засвідчую, що у цьому дипломному проєкті немає запозичень з праць
+            інших авторів без відповідних посилань.
             #grid(
               columns: (auto, 28mm),
               column-gutter: 7mm,
               align: horizon,
-              [#gendered(male: [Студент], female: [Студентка], is_female: student_female)],
+              [#gendered(
+                male: [Студент],
+                female: [Студентка],
+                is_female: student_female,
+              )],
               [#signature_field()],
             )
           ]

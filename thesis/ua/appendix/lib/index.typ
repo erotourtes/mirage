@@ -1,3 +1,1 @@
-#import "lib.typ": (
-  appendix_page, appendix_title_page,
-)
+#import "lib.typ": appendix_page, appendix_title_page

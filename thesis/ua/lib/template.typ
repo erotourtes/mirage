@@ -1,6 +1,8 @@
 #import "../front_matter/album_description.typ": album_description_page
-#import "../front_matter/assignment.typ": assignment_pages, default_assignment_meta
-#import "../front_matter/title.typ": title_page, default_title_meta
+#import "../front_matter/assignment.typ": (
+  assignment_pages, default_assignment_meta,
+)
+#import "../front_matter/title.typ": default_title_meta, title_page
 #import "../front_matter/annotation.typ": annotation_page
 #import "heading.typ": heading_config
 #import "theme.typ": figure_caption_rules

@@ -79,7 +79,10 @@
   } else {
     query(selector(heading).and(header_label))
   }
-  let sheet_count = page_range_sheet_count(start_label: start_label, end_label: end_label)
+  let sheet_count = page_range_sheet_count(
+    start_label: start_label,
+    end_label: end_label,
+  )
   let first_footer = footer_f2(
     document_name: document_name,
     topic: topic,
@@ -113,7 +116,11 @@
 
     #for (index, entry) in entries.enumerate() [
       #outline_entry_row(entry_param: entry, metadata_entries: metadata_entries)
-      #v(outline_entry_gap(entries: entries, index: index, metadata_entries: metadata_entries))
+      #v(outline_entry_gap(
+        entries: entries,
+        index: index,
+        metadata_entries: metadata_entries,
+      ))
     ]
   ]
 }

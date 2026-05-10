@@ -312,11 +312,23 @@
     label-node((0mm, 0mm), text(size: 8pt)[document\ order]),
 
     node((20mm, 0mm), item-box([h0], [`Hello`]), name: <am-h0>),
-    node((45mm, 0mm), item-box([h2], [`,`], fill: rgb("#d9ead3")), name: <am-h2>),
+    node(
+      (45mm, 0mm),
+      item-box([h2], [`,`], fill: rgb("#d9ead3")),
+      name: <am-h2>,
+    ),
     node((70mm, 0mm), item-box([h1], [`space`]), name: <am-h1>),
-    node((95mm, 0mm), item-box([h4], [`bold=true`], fill: rgb("#d9eaf7")), name: <am-h4>),
+    node(
+      (95mm, 0mm),
+      item-box([h4], [`bold=true`], fill: rgb("#d9eaf7")),
+      name: <am-h4>,
+    ),
     node((120mm, 0mm), item-box([h3], [`world`]), name: <am-h3>),
-    node((145mm, 0mm), item-box([h5], [`bold=null`], fill: rgb("#d9eaf7")), name: <am-h5>),
+    node(
+      (145mm, 0mm),
+      item-box([h5], [`bold=null`], fill: rgb("#d9eaf7")),
+      name: <am-h5>,
+    ),
 
     edge(<am-h0>, <am-h2>, "-"),
     edge(<am-h2>, <am-h1>, "-"),
@@ -327,25 +339,49 @@
     label-node((0mm, -34mm), text(size: 8pt)[shared\ byte\ buffer]),
 
     node((22mm, -30mm), text(size: 8pt)[`[0..5)`], name: <am-b0>),
-    node((28mm, -36mm), byte-segment([`"Hello"`], width: 26mm), name: <am-seg0>),
+    node(
+      (28mm, -36mm),
+      byte-segment([`"Hello"`], width: 26mm),
+      name: <am-seg0>,
+    ),
 
     node((47mm, -30mm), text(size: 8pt)[`[5..6)`], name: <am-b1>),
     node((47mm, -36mm), byte-segment([`" "`], width: 12mm), name: <am-seg1>),
 
     node((61mm, -30mm), text(size: 8pt)[`[6..11)`], name: <am-b3>),
-    node((66mm, -36mm), byte-segment([`"world"`], width: 26mm), name: <am-seg3>),
+    node(
+      (66mm, -36mm),
+      byte-segment([`"world"`], width: 26mm),
+      name: <am-seg3>,
+    ),
 
     node((85mm, -30mm), text(size: 8pt)[`[11..12)`], name: <am-b2>),
-    node((85mm, -36mm), byte-segment([`","`], fill: rgb("#d9ead3"), width: 12mm), name: <am-seg2>),
+    node(
+      (85mm, -36mm),
+      byte-segment([`","`], fill: rgb("#d9ead3"), width: 12mm),
+      name: <am-seg2>,
+    ),
 
     node((102mm, -30mm), text(size: 8pt)[`[12..16)`], name: <am-b4-key>),
-    node((102mm, -36mm), byte-segment([`"bold"`], width: 22mm), name: <am-seg4-key>),
+    node(
+      (102mm, -36mm),
+      byte-segment([`"bold"`], width: 22mm),
+      name: <am-seg4-key>,
+    ),
 
     node((123mm, -30mm), text(size: 8pt)[`[16..20)`], name: <am-b4-value>),
-    node((123mm, -36mm), byte-segment([`"true"`], width: 20mm), name: <am-seg4-value>),
+    node(
+      (123mm, -36mm),
+      byte-segment([`"true"`], width: 20mm),
+      name: <am-seg4-value>,
+    ),
 
     node((144mm, -30mm), text(size: 8pt)[`[20..24)`], name: <am-b5-key>),
-    node((144mm, -36mm), byte-segment([`"bold"`], width: 22mm), name: <am-seg5-key>),
+    node(
+      (144mm, -36mm),
+      byte-segment([`"bold"`], width: 22mm),
+      name: <am-seg5-key>,
+    ),
 
     edge(<am-h0>, <am-b0>, "--|>"),
     edge(<am-h2>, <am-b2>, "--|>"),

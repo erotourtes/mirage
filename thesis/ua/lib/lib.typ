@@ -81,7 +81,9 @@
     ]
 
     #if caption != none {
-      let caption_box_width = if caption_width == none { w } else { caption_width }
+      let caption_box_width = if caption_width == none { w } else {
+        caption_width
+      }
 
       place(top + left, dx: caption_dx, dy: value_size + line_gap + caption_dy)[
         #box(width: caption_box_width)[

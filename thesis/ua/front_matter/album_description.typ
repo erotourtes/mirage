@@ -1,6 +1,4 @@
-#import "../lib/lib.typ": (
-  full_document_code, page_range_sheet_count,
-)
+#import "../lib/lib.typ": full_document_code, page_range_sheet_count
 #import "../lib/page.typ": standard_page
 #import "../technical_task/lib/index.typ": technical_task_labels
 #import "../report/lib/index.typ": report_labels

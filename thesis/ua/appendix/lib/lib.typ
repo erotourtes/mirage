@@ -1,5 +1,7 @@
 #import "../../lib/footer.typ": footer_f2, footer_f2a
-#import "../../lib/lib.typ": full_document_code, page_margin, page_range_sheet_count
+#import "../../lib/lib.typ": (
+  full_document_code, page_margin, page_range_sheet_count,
+)
 #import "../../lib/page.typ": bordered_page, cover_page
 
 #let appendix_title_page(
@@ -52,7 +54,10 @@
     group: group,
     document_code: document_code,
     sheet_number: [1],
-    sheet_count: page_range_sheet_count(start_label: meta.start_label, end_label: meta.end_label),
+    sheet_count: page_range_sheet_count(
+      start_label: meta.start_label,
+      end_label: meta.end_label,
+    ),
     implemented_by: implemented_by,
     reviewed_by: reviewed_by,
     norm_controller: norm_controller,

@@ -67,29 +67,73 @@
         proto-field([client id], [`varuint`], fill: rgb("#d9eaf7")),
         proto-field([item count], [`varuint`], fill: rgb("#d9eaf7")),
         proto-field([first clock], [`varuint`], fill: rgb("#d9eaf7")),
-        proto-field([item columns], [`one payload per column`], fill: rgb("#f7f3ef"), width: 148pt),
+        proto-field(
+          [item columns],
+          [`one payload per column`],
+          fill: rgb("#f7f3ef"),
+          width: 148pt,
+        ),
       )),
     ]),
 
     node((rel: (-20mm, -40mm), to: <update>), name: <item-columns>, [
       #proto-section([item columns], proto-row(
         proto-field([lengths], [`varints`], fill: rgb("#f7f3ef")),
-        proto-field([left origins], [`kind column + ids`], fill: rgb("#f7f3ef"), width: 88pt),
-        proto-field([right origins], [`kind column + ids`], fill: rgb("#f7f3ef"), width: 88pt),
-        proto-field([content tags], [`string / format`], fill: rgb("#f7f3ef"), width: 78pt),
-        proto-field([string data], [`lens + bytes`], fill: rgb("#f7f3ef"), width: 76pt),
-        proto-field([format data], [`keys + values`], fill: rgb("#f7f3ef"), width: 76pt),
+        proto-field(
+          [left origins],
+          [`kind column + ids`],
+          fill: rgb("#f7f3ef"),
+          width: 88pt,
+        ),
+        proto-field(
+          [right origins],
+          [`kind column + ids`],
+          fill: rgb("#f7f3ef"),
+          width: 88pt,
+        ),
+        proto-field(
+          [content tags],
+          [`string / format`],
+          fill: rgb("#f7f3ef"),
+          width: 78pt,
+        ),
+        proto-field(
+          [string data],
+          [`lens + bytes`],
+          fill: rgb("#f7f3ef"),
+          width: 76pt,
+        ),
+        proto-field(
+          [format data],
+          [`keys + values`],
+          fill: rgb("#f7f3ef"),
+          width: 76pt,
+        ),
       )),
     ]),
 
     node((rel: (30mm, -60mm), to: <update>), name: <delete-set>, [
       #proto-section([delete set], proto-row(
-        proto-field([delete clients], [`varuint count`], fill: rgb("#d9ead3"), width: 88pt),
-        proto-field([delete client block], [`client id, range count`], fill: rgb("#d9ead3"), width: 120pt),
-        proto-field([delete ranges], [`(clock, len) repeated`], fill: rgb("#d9ead3"), width: 120pt),
+        proto-field(
+          [delete clients],
+          [`varuint count`],
+          fill: rgb("#d9ead3"),
+          width: 88pt,
+        ),
+        proto-field(
+          [delete client block],
+          [`client id, range count`],
+          fill: rgb("#d9ead3"),
+          width: 120pt,
+        ),
+        proto-field(
+          [delete ranges],
+          [`(clock, len) repeated`],
+          fill: rgb("#d9ead3"),
+          width: 120pt,
+        ),
       )),
     ]),
-
 
     edge(
       (15mm, -5.7mm),

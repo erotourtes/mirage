@@ -1,6 +1,6 @@
 #import "lib/index.typ": (
-  report_abbreviations_page, report_bibliography_page, report_labels,
-  report_heading_rules, report_outline_page, report_page, report_title_page,
+  report_abbreviations_page, report_bibliography_page, report_heading_rules,
+  report_labels, report_outline_page, report_page, report_title_page,
 )
 #import "../lib/lib.typ": full_document_code
 #import "../lib/theme.typ": bibliography_style
@@ -37,7 +37,9 @@
     abbreviations: thesis.report.abbreviations,
   )
 
-  #report_page(document_code: full_document_code(code: thesis.document.codes.report))[
+  #report_page(document_code: full_document_code(
+    code: thesis.document.codes.report,
+  ))[
     #body
   ]
 

@@ -459,3 +459,10 @@ grapheme-clustering:
   url:
     value: https://mitchellh.com/writing/grapheme-clusters-in-terminals
     date: 2026-05-10
+
+cap-n-proto-encoding:
+  type: Web
+  title: Encoding Spec
+  url:
+    value: https://capnproto.org/encoding.html
+    date: 2026-05-10

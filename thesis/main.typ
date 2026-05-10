@@ -767,7 +767,7 @@ clock range and stores its logical length.
 
 Encoding updates as JSON would be inefficient because collaborative text data
 contains a large amount of repeated metadata. General binary formats such as
-Cap'n Proto are more compact, but a custom binary format can reduce metadata
+Cap'n Proto @cap-n-proto-encoding are more compact, but a custom binary format can reduce metadata
 even further by exploiting the structure of CRDT updates
 @crdt-reducing-metadata-overhead.
 
@@ -781,10 +781,11 @@ Changed items are grouped by client, and their fields are written in columns
 rather than as independent records. This column-oriented layout makes repeated
 metadata easier to compress.
 
-For example, suppose one update contains `42` consecutive single-character items
-created by client `7`. A straightforward item-by-item encoding that stores both
-`ClientId` and `Clock` as fixed-width 64-bit values for every item would use
-$42 dot (64 + 64) / 8 = 672$ bytes just for item ids.
+For example, suppose an update contains the 42-character text
+`The quick brown fox jumps overthe lazy dog`, represented as `42` consecutive
+single-character items created by client `7`. A straightforward item-by-item
+encoding that stores both `ClientId` and `Clock` as fixed-width 64-bit values
+for every item would use $42 dot (64 + 64) / 8 = 672$ bytes just for item ids.
 
 The implementation instead writes one client block:
 
@@ -802,8 +803,9 @@ repeated `42` times. This can be represented with run-length encoding as one run
 @rle[pp. 20-24], for example `(value: 1, run_len: 42)`.
 
 Because small integers are compact under unsigned LEB128 encoding, the metadata
-needed to reconstruct these ids occupies around `5` bytes. The exact saving depends on the data and column overhead, so the encoder
-uses run-length encoding only when it is smaller than the raw varint column.
+needed to reconstruct these ids occupies around `5` bytes. The exact saving
+depends on the data and column overhead, so the encoder uses run-length encoding
+only when it is smaller than the raw varint column.
 
 Deletion information is encoded separately as a delete set. The delete set
 groups deleted clock ranges by client, so multiple adjacent deletions can be
@@ -828,8 +830,8 @@ are available, they can be applied normally.
 Remote operations are idempotent. Reintegrating an already known item has no
 effect, and applying the same deletion again only keeps the item deleted. This
 means that the transport layer does not need to provide causal or exactly-once
-delivery. As long as all replicas eventually
-receive the same set of updates, the CRDT state can still converge.
+delivery. As long as all replicas eventually receive the same set of updates,
+the CRDT state can still converge.
 
 == Rich Text Formatting
 

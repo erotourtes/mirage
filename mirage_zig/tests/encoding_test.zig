@@ -196,11 +196,12 @@ test "malformed state vector is rejected when encoding diff" {
 }
 
 test "encodes and decodes 42 consecutive single-character items created by client 7" {
+    const text = "The quick brown fox jumps overthe lazy dog";
     var doc = mirage.Doc.init(std.testing.allocator, 7);
     defer doc.deinit();
 
-    for (0..42) |i| {
-        try doc.text().insert(i, "x");
+    for (text, 0..) |char, i| {
+        try doc.text().insert(i, &[_]u8{char});
     }
 
     const update = try doc.text().encodeStateAsUpdate(std.testing.allocator, null);
@@ -212,5 +213,5 @@ test "encodes and decodes 42 consecutive single-character items created by clien
 
     const rendered = try decoded.text().toOwnedString(std.testing.allocator);
     defer std.testing.allocator.free(rendered);
-    try std.testing.expectEqualStrings("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", rendered);
+    try std.testing.expectEqualStrings(text, rendered);
 }

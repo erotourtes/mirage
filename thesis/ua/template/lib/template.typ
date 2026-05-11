@@ -20,6 +20,7 @@
   // adds spacing between list items
   #show selector.or(list.item, enum.item): block
   #set text(lang: "uk", region: "UA")
+  #show figure.where(kind: table): set block(breakable: true)
 
   #title_page(
     meta: default_title_meta,

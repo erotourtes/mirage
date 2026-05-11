@@ -51,6 +51,7 @@
     #if section_number != none {
       counter(figure.where(kind: image)).update(0)
       counter(figure.where(kind: table)).update(0)
+      counter(math.equation).update(0)
       counter(heading).update(section_number)
     }
     #colbreak(weak: true)
@@ -83,6 +84,27 @@
 #let report_figure_numbering(n) = context {
   let section_number = counter(heading).get().first()
   numbering("1.1", section_number, n)
+}
+
+#let report_equation_numbering(n) = context {
+  let section_number = counter(heading).get().first()
+  numbering("(1.1)", section_number, n)
+}
+
+#let report_equation_rules(it) = {
+  if it.numbering == none {
+    it
+  } else {
+    block(width: 100%)[
+      #grid(
+        columns: (1fr, auto),
+        column-gutter: 6mm,
+        align: (center + horizon, right + horizon),
+        [#it.body,],
+        [#context numbering(it.numbering, ..counter(math.equation).get())],
+      )
+    ]
+  }
 }
 
 #let report_heading_rules(it) = {

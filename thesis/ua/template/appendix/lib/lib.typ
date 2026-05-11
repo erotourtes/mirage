@@ -1,6 +1,6 @@
 #import "../../lib/footer.typ": footer_f2, footer_f2a
 #import "../../lib/lib.typ": (
-  full_document_code, page_margin, page_range_sheet_count,
+  code_long_form, full_document_code, page_margin, page_range_sheet_count,
 )
 #import "../../lib/page.typ": bordered_page, cover_page
 
@@ -21,7 +21,7 @@
       #text(size: 18pt)[#topic]
 
       #v(40mm)
-      #text(size: 18pt)[#code.long_form]
+      #text(size: 18pt)[#code_long_form(code: code)]
       #v(3mm)
       #text(size: 18pt)[#full_document_code(code: code)]
 
@@ -49,7 +49,7 @@
 
   let document_code = full_document_code(code: code)
   let first_footer = footer_f2(
-    document_name: code.long_form,
+    document_name: code_long_form(code: code),
     topic: topic,
     group: group,
     document_code: document_code,

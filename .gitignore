@@ -3,3 +3,5 @@ doc
 *.pdf
 benchmark/.cache/*
 !benchmark/.cache/.gitkeep
+
+pdf-visual-diff

@@ -18,7 +18,7 @@
   #show heading.where(level: 2): it => heading_config(level: 2, it: it)
   #show heading.where(level: 3): it => heading_config(level: 3, it: it)
   // adds spacing between list items
-  #show selector.or(list.item, enum.item): block
+  #show selector.or(list.item): block
   #set text(lang: "uk", region: "UA")
   #show figure.where(kind: table): set block(breakable: true)
 
@@ -37,6 +37,15 @@
     student_female: false,
   )
 
+  #let long_form = code => {
+    let form = code.form
+    if form.note == none {
+      lower(form.title)
+    } else {
+      lower([#form.title (#form.note)])
+    }
+  }
+
   #assignment_pages(
     meta: default_assignment_meta,
     topic: thesis.topic,
@@ -48,7 +57,11 @@
     order_line: thesis.assignment.order_line,
     due_date: thesis.assignment.due_date,
     input_data: thesis.assignment.input_data,
-    graphics: thesis.assignment.graphics,
+    graphics: [
+      #long_form(thesis.document.codes.d1),
+      #long_form(thesis.document.codes.d2),
+      #long_form(thesis.document.codes.d3),
+    ],
     norm_controller: thesis.document.norm_controller,
     issue_date: thesis.assignment.issue_date,
     calendar: thesis.assignment.calendar,
@@ -91,8 +104,10 @@
 
 // На таблицю даються посилання типу “у таблиці 2.12”.
 // На раніше згадувані таблиці дають посилання типу “див. таблицю 2.12”.
-#let table_ref(target, see: false, parens: false) = {
-  let content = if see {
+#let table_ref(target, see: false, parens: false, custom: none) = {
+  let content = if custom != none {
+    ref(target, supplement: custom)
+  } else if see {
     [#ref(target, supplement: [див. таблицю])]
   } else {
     [#ref(target, supplement: [у таблиці])]
@@ -103,4 +118,11 @@
   } else {
     content
   }
+}
+
+#let llink(..args) = {
+  let content = link(..args)
+  show link: underline
+
+  content
 }

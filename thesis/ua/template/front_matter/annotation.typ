@@ -8,12 +8,18 @@
     #align(center)[
       #text(weight: "bold")[АНОТАЦІЯ]
     ]
-    #par(justify: true)[#text_ua]
+    #{
+      set par(justify: true)
+      text_ua
+    }
 
     #v(6mm)
     #align(center)[
       #text(weight: "bold")[ANNOTATION]
     ]
-    #par(justify: true)[#text_en]
+    #{
+      set par(justify: true)
+      text_en
+    }
   ]
 }

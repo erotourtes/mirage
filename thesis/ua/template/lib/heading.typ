@@ -40,7 +40,7 @@
       #heading_number#if should_number [ ]#upper(plain_heading_text(it.body))
     ]
 
-    block(width: 100%, above: 1em, below: 1.5em)[
+    block(width: 100%, above: 2em, below: 1em)[
       #align(center)[#heading_body]
     ]
   } else {

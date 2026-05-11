@@ -334,22 +334,22 @@ user intent in rich text editing @crdt-peritext-rich-text.
     [Local insertion],
     [$O(log(H))$ @crdt-yjs-paper[p. 45]],
     [Mostly evaluated empirically],
-    [$O(N)$ @crdt-evalution[p. 106]],
+    [$O(N)$ @crdt-evaluation[p. 106]],
 
     [Local deletion],
     [$O(log(H))$ @crdt-yjs-paper[p. 45]],
     [Mostly evaluated empirically],
-    [$O(N)$ @crdt-evalution[p. 106]],
+    [$O(N)$ @crdt-evaluation[p. 106]],
 
     [Remote insertion],
     [$H^2$ @crdt-yjs-paper[p. 45]],
     [Mostly evaluated empirically],
-    [$O(1 + c/n)$ @crdt-evalution[p. 106]],
+    [$O(1 + c/n)$ @crdt-evaluation[p. 106]],
 
     [Remote deletion],
     [$O(log(H))$ @crdt-yjs-paper[p. 45]],
     [Mostly evaluated empirically],
-    [$O(1)$ @crdt-evalution[p. 106]],
+    [$O(1)$ @crdt-evaluation[p. 106]],
 
     [Advantages],
     [Efficient text synchronization, compact updates, mature ecosystem, browser
@@ -399,7 +399,7 @@ At the public API level, a document exposes a text object that can:
 - delete a visible range;
 - apply or clear formatting attributes over a range;
 - render the current visible text;
-- render attributed text as delta-style operations @delta-text-format;
+- render attributed text as delta-style operations;
 - encode a state vector describing what the replica already knows;
 - encode an update relative to another replica's state vector;
 - apply updates received from other replicas.
@@ -672,8 +672,8 @@ item that has already been deleted locally.
 When a replica receives an update from another replica, it does not apply the
 operation by visible index. Visible indexes are local and temporary: while
 replicas are missing each other's updates, the same index may refer to different
-internal positions. Therefore, remote integration is based on stable item ids
-and origin ids.
+internal positions. Therefore, remote integration is based on stable item origin
+ids.
 
 A remote item contains:
 
@@ -883,7 +883,7 @@ Rendering walks the sequence from left to right. When it encounters a format
 item, it updates the currently active attributes. When it encounters a
 non-deleted string item, it emits the text with the attributes that are active
 at that point. The same traversal can therefore produce plain text by ignoring
-active attributes, or attributed delta operations by attaching the active
+active attributes, or attributed delta @delta-text-format operations by attaching the active
 attributes to each emitted text fragment.
 
 Restore markers are needed when formatting only a range. If an attribute had a

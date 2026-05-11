@@ -219,7 +219,7 @@ crdt-yjs-typst:
     value: https://github.com/yjs/yjs/blob/6909511b5bf5c8ab572fc7d12a2268a4646501b0/README.md?plain=1#L126
     date: 2026-04-13
 
-crdt-evalution:
+crdt-evaluation:
   type: Article
   title: Evaluating CRDTs for real-time document editing
   author:
@@ -466,3 +466,107 @@ cap-n-proto-encoding:
   url:
     value: https://capnproto.org/encoding.html
     date: 2026-05-10
+
+zig-tests:
+  type: Web
+  title: Zig Test
+  url:
+    value: https://ziglang.org/documentation/master/#Zig-Test
+    date: 2026-05-12
+
+npm-weak-links:
+  type: conference
+  title: What are Weak Links in the npm Supply Chain?
+  author:
+    - Zahan, Nusrat
+    - Zimmermann, Thomas
+    - Godefroid, Patrice
+    - Murphy, Brendan
+    - Maddila, Chandra
+    - Williams, Laurie
+  date: 2022
+  parent:
+    type: proceedings
+    title: "Proceedings of the 44th International Conference on Software Engineering: Software Engineering in Practice"
+    publisher: Association for Computing Machinery
+    location: New York, NY, USA
+  page-range: 331-340
+  serial-number:
+    doi: 10.1145/3510457.3513044
+    isbn: 9781450392266
+  url: 
+    value: https://doi.org/10.1145/3510457.3513044
+    date: 2026-05-14
+
+typescript-handbook:
+  type: Web
+  title: TypeScript for the New Programmer
+  url:
+    value: https://www.typescriptlang.org/docs/handbook/typescript-from-scratch.html
+    date: 2026-05-14
+
+rust-book-ownership:
+  type: Web
+  title: Understanding Ownership
+  parent:
+    type: Book
+    title: The Rust Programming Language
+  url:
+    value: https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html
+    date: 2026-05-14
+
+rust-wasm:
+  type: Web
+  title: WebAssembly
+  url:
+    value: https://www.rust-lang.org/what/wasm/
+    date: 2026-05-14
+
+zig-docs:
+  type: Web
+  title: Documentation - The Zig Programming Language
+  url:
+    value: https://ziglang.org/documentation/master/
+    date: 2026-05-14
+
+npm-provenance:
+  type: Web
+  title: Generating provenance statements
+  url:
+    value: https://docs.npmjs.com/generating-provenance-statements
+    date: 2026-05-14
+
+tiger-style:
+  type: Web
+  title: Tiger Style
+  url:
+    value: https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md
+    date: 2026-05-14
+
+openai-codex-docs:
+  type: Web
+  title: Codex web
+  url:
+    value: https://developers.openai.com/codex/cloud
+    date: 2026-05-14
+
+tanstack-worm:
+  type: Web
+  title: "Postmortem: TanStack npm supply-chain compromise"
+  url:
+    value: https://tanstack.com/blog/npm-supply-chain-compromise-postmortem
+    date: 2026-05-16
+
+crdt-benchmarks:
+  type: Web
+  title: "crdt-benchmarks"
+  url:
+    value: https://github.com/dmonad/crdt-benchmarks/tree/main
+    date: 2026-05-16
+
+zero-width-joiner:
+  type: Web
+  title: "ZERO WIDTH JOINER"
+  url:
+    value: https://unicode-explorer.com/c/200D
+    date: 2026-05-16

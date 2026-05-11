@@ -28,7 +28,7 @@
 
 #let protocol-diagrams = (
   update-layout: diagram(
-    debug: true,
+    debug: false,
     spacing: (0mm, 0mm),
 
     node(

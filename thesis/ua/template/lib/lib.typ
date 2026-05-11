@@ -21,6 +21,15 @@
 
 #let full_document_code(code: none) = [#code.number #code.short_form]
 
+#let code_long_form(code: none) = {
+  let form = code.form
+  if form.note == none {
+    form.title
+  } else {
+    [#form.title\ (#form.note)]
+  }
+}
+
 #let page_range_sheet_count(start_label: none, end_label: none) = context {
   let starts = query(start_label)
   let ends = query(end_label)

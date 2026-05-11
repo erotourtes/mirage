@@ -22,7 +22,9 @@ const starterText = `# mirage collaborative editor
 - History: use the slider to inspect previous document revisions.
 
 Example:
-the quick brown fox jumps overthe crazy dog`;
+the quick brown fox jumps overthe crazy dog
+
+Try these emojis 🧑🏿‍❤️‍💋‍🧑🏻🏴👨‍👩‍👧‍👦1️⃣🇺🇦 `;
 const starterBrand = "mirage";
 const starterBrandColor = "#67e8f9" satisfies TextColor;
 const starterBoldLabels = [

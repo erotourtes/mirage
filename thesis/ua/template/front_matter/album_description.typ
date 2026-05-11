@@ -1,4 +1,4 @@
-#import "../lib/lib.typ": full_document_code, page_range_sheet_count
+#import "../lib/lib.typ": code_long_form, full_document_code, page_range_sheet_count
 #import "../lib/page.typ": standard_page
 #import "../technical_task/lib/index.typ": technical_task_labels
 #import "../report/lib/index.typ": report_labels
@@ -60,7 +60,7 @@
 ) = {
   let first_table_entries = (
     (
-      topic: [#topic\ #codes.technical_task.long_form],
+      topic: [#topic\ #code_long_form(code: codes.technical_task)],
       code: full_document_code(code: codes.technical_task),
       sheets: page_range_sheet_count(
         start_label: technical_task_labels.page_start,
@@ -68,7 +68,7 @@
       ),
     ),
     (
-      topic: [#topic\ #codes.report.long_form],
+      topic: [#topic\ #code_long_form(code: codes.report)],
       code: full_document_code(code: codes.report),
       sheets: page_range_sheet_count(
         start_label: report_labels.page_start,
@@ -76,7 +76,7 @@
       ),
     ),
     (
-      topic: [#topic\ #codes.d1.long_form],
+      topic: [#topic\ #code_long_form(code: codes.d1)],
       code: full_document_code(code: codes.d1),
       sheets: page_range_sheet_count(
         start_label: appendix_d1_meta.start_label,
@@ -84,7 +84,7 @@
       ),
     ),
     (
-      topic: [#topic\ #codes.d2.long_form],
+      topic: [#topic\ #code_long_form(code: codes.d2)],
       code: full_document_code(code: codes.d2),
       sheets: page_range_sheet_count(
         start_label: appendix_d2_meta.start_label,
@@ -92,7 +92,7 @@
       ),
     ),
     (
-      topic: [#topic\ #codes.d3.long_form],
+      topic: [#topic\ #code_long_form(code: codes.d3)],
       code: full_document_code(code: codes.d3),
       sheets: page_range_sheet_count(
         start_label: appendix_d3_meta.start_label,
@@ -100,7 +100,7 @@
       ),
     ),
     (
-      topic: [#topic\ #codes.d4.long_form],
+      topic: [#topic\ #code_long_form(code: codes.d4)],
       code: full_document_code(code: codes.d4),
       sheets: page_range_sheet_count(
         start_label: appendix_d4_meta.start_label,
@@ -158,7 +158,7 @@
         rowspan: 3,
         align: center + horizon,
         inset: 7mm,
-      )[#text(style: "italic")[#topic\ #codes.album_description.long_form]],
+      )[#text(style: "italic")[#topic\ #code_long_form(code: codes.album_description)]],
       table.cell(colspan: 3)[Літ.], [Аркуш], [Аркушів],
       table.cell(colspan: 2)[#text(weight: "bold")[Перевір.]],
       [#examined_by],

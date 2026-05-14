@@ -64,6 +64,25 @@ export fn text_history_len(doc_handle: usize, out_revision_addr: usize) u32 {
     return ok();
 }
 
+export fn text_internal_byte_len(doc_handle: usize, out_len_addr: usize) u32 {
+    if (out_len_addr == 0) return fail(.invalid_input);
+    writeU64(out_len_addr, 0);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    writeU64(out_len_addr, @intCast(doc.text().internalByteLen()));
+    return ok();
+}
+
+export fn text_visible_byte_len(doc_handle: usize, revision: u64, revision_is_null: u32, out_len_addr: usize) u32 {
+    if (out_len_addr == 0) return fail(.invalid_input);
+    writeU64(out_len_addr, 0);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    const target_revision: ?u64 = if (revision_is_null != 0) null else revision;
+    writeU64(out_len_addr, @intCast(doc.text().visibleByteLen(target_revision)));
+    return ok();
+}
+
 export fn text_insert(doc_handle: usize, index: u64, ptr: usize, len: usize) u32 {
     const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
     const text = inputBytes(ptr, len) catch return fail(.invalid_input);
@@ -131,6 +150,58 @@ export fn text_to_string_revision(doc_handle: usize, revision: u64, out_ptr_addr
 
     const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
     const rendered = doc.text().toOwnedString(allocator(), revision) catch return fail(.operation_failed);
+    writeResult(out_ptr_addr, out_len_addr, rendered);
+    return ok();
+}
+
+export fn text_to_delta(doc_handle: usize, out_ptr_addr: usize, out_len_addr: usize) u32 {
+    clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    var delta = doc.text().toDelta(allocator(), null) catch return fail(.operation_failed);
+    defer delta.deinit(allocator());
+
+    const rendered = deltaToJson(allocator(), &delta) catch return fail(.operation_failed);
+    writeResult(out_ptr_addr, out_len_addr, rendered);
+    return ok();
+}
+
+export fn text_to_delta_revision(doc_handle: usize, revision: u64, out_ptr_addr: usize, out_len_addr: usize) u32 {
+    clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    var delta = doc.text().toDelta(allocator(), revision) catch return fail(.operation_failed);
+    defer delta.deinit(allocator());
+
+    const rendered = deltaToJson(allocator(), &delta) catch return fail(.operation_failed);
+    writeResult(out_ptr_addr, out_len_addr, rendered);
+    return ok();
+}
+
+export fn text_to_delta_range(
+    doc_handle: usize,
+    start: u64,
+    end: u64,
+    revision: u64,
+    revision_is_null: u32,
+    include_leading_attrs: u32,
+    out_ptr_addr: usize,
+    out_len_addr: usize,
+) u32 {
+    clearResult(out_ptr_addr, out_len_addr) catch return fail(.invalid_input);
+
+    const doc = asDoc(doc_handle) orelse return fail(.invalid_handle);
+    const target_revision: ?u64 = if (revision_is_null != 0) null else revision;
+    var delta = doc.text().toDeltaRange(
+        allocator(),
+        start,
+        end,
+        target_revision,
+        include_leading_attrs != 0,
+    ) catch return fail(.operation_failed);
+    defer delta.deinit(allocator());
+
+    const rendered = deltaToJson(allocator(), &delta) catch return fail(.operation_failed);
     writeResult(out_ptr_addr, out_len_addr, rendered);
     return ok();
 }
@@ -214,6 +285,78 @@ fn singleAttribute(
         else
             .{ .string = try inputBytes(value_ptr, value_len) },
     };
+}
+
+fn deltaToJson(alloc_instance: std.mem.Allocator, delta: *const mirage.Delta) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(alloc_instance);
+
+    try out.append(alloc_instance, '[');
+    for (delta.ops.items, 0..) |op, op_index| {
+        if (op_index > 0) try out.append(alloc_instance, ',');
+        try out.appendSlice(alloc_instance, "{\"insert\":");
+        try appendJsonString(&out, alloc_instance, op.insert);
+
+        var has_attributes = false;
+        for (op.attributes) |attribute| {
+            if (attribute.value == .string) {
+                has_attributes = true;
+                break;
+            }
+        }
+
+        if (has_attributes) {
+            try out.appendSlice(alloc_instance, ",\"attributes\":{");
+            var first_attribute = true;
+            for (op.attributes) |attribute| {
+                switch (attribute.value) {
+                    .null => {},
+                    .string => |value| {
+                        if (!first_attribute) try out.append(alloc_instance, ',');
+                        first_attribute = false;
+                        try appendJsonString(&out, alloc_instance, attribute.key);
+                        try out.append(alloc_instance, ':');
+                        try appendJsonString(&out, alloc_instance, value);
+                    },
+                }
+            }
+            try out.append(alloc_instance, '}');
+        }
+
+        try out.append(alloc_instance, '}');
+    }
+    try out.append(alloc_instance, ']');
+
+    return try out.toOwnedSlice(alloc_instance);
+}
+
+fn appendJsonString(out: *std.ArrayList(u8), alloc_instance: std.mem.Allocator, value: []const u8) !void {
+    const hex = "0123456789abcdef";
+
+    try out.append(alloc_instance, '"');
+    for (value) |byte| {
+        if (byte < 0x20) {
+            switch (byte) {
+                0x08 => try out.appendSlice(alloc_instance, "\\b"),
+                0x0c => try out.appendSlice(alloc_instance, "\\f"),
+                '\n' => try out.appendSlice(alloc_instance, "\\n"),
+                '\r' => try out.appendSlice(alloc_instance, "\\r"),
+                '\t' => try out.appendSlice(alloc_instance, "\\t"),
+                else => {
+                    try out.appendSlice(alloc_instance, "\\u00");
+                    try out.append(alloc_instance, hex[byte >> 4]);
+                    try out.append(alloc_instance, hex[byte & 0x0f]);
+                },
+            }
+        } else {
+            switch (byte) {
+                '"' => try out.appendSlice(alloc_instance, "\\\""),
+                '\\' => try out.appendSlice(alloc_instance, "\\\\"),
+                else => try out.append(alloc_instance, byte),
+            }
+        }
+    }
+    try out.append(alloc_instance, '"');
 }
 
 fn clearResult(out_ptr_addr: usize, out_len_addr: usize) !void {

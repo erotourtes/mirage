@@ -121,6 +121,15 @@ pub const StructStore = struct {
             }
         }
     }
+
+    pub fn byteLen(self: *const StructStore) usize {
+        var total = self.clients.count() * (@sizeOf(id.ClientId) + @sizeOf(ClientStructs));
+        for (self.clients.values()) |client_structs| {
+            total += client_structs.items.items.len * @sizeOf(item.ItemHandle);
+        }
+        total += self.delete_set.byteLen();
+        return total;
+    }
 };
 
 fn findHandleIndex(handles: []const item.ItemHandle, target: item.ItemHandle) StoreError!usize {

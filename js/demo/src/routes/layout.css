@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+:root {
+  --channel-scrollbar-thumb: rgb(34 211 238);
+  --channel-scrollbar-thumb-hover: rgb(103 232 249);
+  --channel-scrollbar-track: rgb(23 23 23);
+  --channel-scrollbar-border: rgb(64 64 64);
+}
+
+* {
+  scrollbar-color: var(--channel-scrollbar-thumb)
+    var(--channel-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+.channel-scrollbar {
+  scrollbar-gutter: stable;
+}
+
+*::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--channel-scrollbar-track);
+  border-left: 1px solid var(--channel-scrollbar-border);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--channel-scrollbar-thumb);
+  border: 2px solid var(--channel-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--channel-scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--channel-scrollbar-track);
+}
+
+.editor-scrollbar-left {
+  direction: rtl;
+  padding: 1rem 1rem 1rem 0.5rem;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.editor-scrollbar-left > * {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.editor-scrollbar-left::-webkit-scrollbar-track {
+  border-right: 1px solid var(--channel-scrollbar-border);
+  border-left: 0;
+}

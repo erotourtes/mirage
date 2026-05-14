@@ -36,6 +36,14 @@ pub const DeleteSet = struct {
             sortAndMergeClient(items);
         }
     }
+
+    pub fn byteLen(self: *const DeleteSet) usize {
+        var total = self.clients.count() * (@sizeOf(id.ClientId) + @sizeOf(std.ArrayList(DeleteItem)));
+        for (self.clients.values()) |items| {
+            total += items.items.len * @sizeOf(DeleteItem);
+        }
+        return total;
+    }
 };
 
 fn addMerged(allocator: std.mem.Allocator, items: *std.ArrayList(DeleteItem), next: DeleteItem) !void {

@@ -35,6 +35,13 @@ export interface MirageWasmExports {
     outRevisionPtr: WasmPtr,
   ): ErrorCode;
   text_history_len(doc: MirageDocHandle, outRevisionPtr: WasmPtr): ErrorCode;
+  text_internal_byte_len(doc: MirageDocHandle, outLenPtr: WasmPtr): ErrorCode;
+  text_visible_byte_len(
+    doc: MirageDocHandle,
+    revision: bigint,
+    revisionIsNull: WasmBool,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
   text_insert(
     doc: MirageDocHandle,
     index: bigint,
@@ -78,6 +85,27 @@ export interface MirageWasmExports {
   text_to_string_revision(
     doc: MirageDocHandle,
     revision: bigint,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
+  text_to_delta(
+    doc: MirageDocHandle,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
+  text_to_delta_revision(
+    doc: MirageDocHandle,
+    revision: bigint,
+    outPtrPtr: WasmPtr,
+    outLenPtr: WasmPtr,
+  ): ErrorCode;
+  text_to_delta_range(
+    doc: MirageDocHandle,
+    start: bigint,
+    end: bigint,
+    revision: bigint,
+    revisionIsNull: WasmBool,
+    includeLeadingAttrs: WasmBool,
     outPtrPtr: WasmPtr,
     outLenPtr: WasmPtr,
   ): ErrorCode;

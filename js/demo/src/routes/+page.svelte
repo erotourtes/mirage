@@ -83,6 +83,10 @@
           class="rounded-md px-3 py-2 transition hover:bg-white/10 hover:text-white"
           href={resolve("/")}>Demo</a
         >
+        <a
+          class="rounded-md px-3 py-2 transition hover:bg-white/10 hover:text-white"
+          href={resolve("/collaborative-editor")}>Editor</a
+        >
       </nav>
     </header>
 

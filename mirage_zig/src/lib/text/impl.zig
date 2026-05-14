@@ -117,6 +117,31 @@ pub const TextImpl = struct {
         return self.current_revision;
     }
 
+    pub fn internalByteLen(self: *const TextImpl) usize {
+        var total: usize = 0;
+        total += self.items.items.len * @sizeOf(item_mod.Item);
+        total += self.bytes.items.len;
+        total += self.store.byteLen();
+        total += self.pending_updates.items.len * @sizeOf([]u8);
+        total += self.pending_update_bytes;
+        return total;
+    }
+
+    pub fn visibleByteLen(self: *const TextImpl, revision: ?id.Revision) usize {
+        var total: usize = 0;
+        var cursor = self.start;
+        while (cursor) |handle| {
+            const current = self.items.items[handle];
+            cursor = current.right;
+            if (!self.isItemVisibleAt(handle, revision)) continue;
+            switch (current.content) {
+                .string => |slice| total += self.sliceBytes(slice).len,
+                .format => {},
+            }
+        }
+        return total;
+    }
+
     /// Inserts into the visible character index
     pub fn insert(self: *TextImpl, index: id.TextIndex, bytes: []const u8) TextError!void {
         if (index > self.length) return error.IndexOutOfBounds;
@@ -362,6 +387,20 @@ pub const TextImpl = struct {
         revision: ?id.Revision,
     ) TextError!attrs.Delta {
         return try delta_mod.toDelta(self, allocator, revision);
+    }
+
+    pub fn toDeltaRange(
+        self: *const TextImpl,
+        allocator: std.mem.Allocator,
+        start: id.TextIndex,
+        end: id.TextIndex,
+        revision: ?id.Revision,
+        include_leading_attrs: bool,
+    ) TextError!attrs.Delta {
+        return try delta_mod.toDeltaRange(self, allocator, start, end, .{
+            .revision = revision,
+            .include_leading_attrs = include_leading_attrs,
+        });
     }
 
     fn encodeView(self: *const TextImpl) sync.EncodeView {

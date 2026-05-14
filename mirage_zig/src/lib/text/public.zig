@@ -48,6 +48,19 @@ pub const Text = struct {
         return self.impl.historyLen();
     }
 
+    /// Returns the byte length of Mirage's current internal representation.
+    ///
+    /// This is computed by the implementation itself rather than estimated by
+    /// callers, so it should be updated alongside storage changes.
+    pub fn internalByteLen(self: *const Text) usize {
+        return self.impl.internalByteLen();
+    }
+
+    /// Returns the visible UTF-8 text byte length.
+    pub fn visibleByteLen(self: *const Text, revision: ?id.Revision) usize {
+        return self.impl.visibleByteLen(revision);
+    }
+
     /// Inserts valid UTF-8 bytes at `index`.
     ///
     /// `index` is a Unicode scalar index. Empty text is a no-op. `bytes` are
@@ -152,6 +165,22 @@ pub const Text = struct {
         revision: ?id.Revision,
     ) TextError!attrs.Delta {
         return try self.impl.toDelta(allocator, revision);
+    }
+
+    /// Renders a visible text range as attributed insert operations.
+    ///
+    /// `start` and `end` are Unicode scalar indexes in the visible text at
+    /// `revision`. When `include_leading_attrs` is false, formatting markers
+    /// before `start` are ignored for faster viewport-only rendering.
+    pub fn toDeltaRange(
+        self: *const Text,
+        allocator: std.mem.Allocator,
+        start: id.TextIndex,
+        end: id.TextIndex,
+        revision: ?id.Revision,
+        include_leading_attrs: bool,
+    ) TextError!attrs.Delta {
+        return try self.impl.toDeltaRange(allocator, start, end, revision, include_leading_attrs);
     }
 };
 

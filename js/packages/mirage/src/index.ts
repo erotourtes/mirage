@@ -22,11 +22,18 @@ export interface DeltaOp {
   attributes?: Record<string, string>;
 }
 
+export interface DeltaRangeOptions {
+  revision?: Revision | null;
+  includeLeadingAttrs?: boolean;
+}
+
 export interface MirageDocument {
   readonly handle: MirageDocHandle;
   readonly length: bigint;
   readonly currentRevision: bigint;
   readonly historyLength: bigint;
+  readonly internalByteLength: bigint;
+  readonly visibleByteLength: bigint;
 
   insert(index: Clock, text: string): void;
   insert(index: Clock, text: string, attribute: Attribute): void;
@@ -35,6 +42,13 @@ export interface MirageDocument {
   compact(): void;
 
   toString(revision?: Revision | null): string;
+  visibleByteLengthAt(revision?: Revision | null): bigint;
+  toDelta(revision?: Revision | null): DeltaOp[];
+  toDeltaRange(
+    start: Clock,
+    end: Clock,
+    options?: DeltaRangeOptions,
+  ): DeltaOp[];
   encodeStateVector(): Uint8Array;
   encodeUpdate(targetStateVector?: Uint8Array | null): Uint8Array;
   applyUpdate(update: Uint8Array): void;
@@ -142,6 +156,27 @@ class WasmDocument implements MirageDocument {
     );
   }
 
+  get internalByteLength(): bigint {
+    return this.readU64((outPtr) =>
+      this.wasm.text_internal_byte_len(this.handle, outPtr),
+    );
+  }
+
+  get visibleByteLength(): bigint {
+    return this.visibleByteLengthAt();
+  }
+
+  visibleByteLengthAt(revision?: Revision | null): bigint {
+    return this.readU64((outPtr) =>
+      this.wasm.text_visible_byte_len(
+        this.handle,
+        revision === null || revision === undefined ? 0n : BigInt(revision),
+        revision === null || revision === undefined ? 1 : 0,
+        outPtr,
+      ),
+    );
+  }
+
   insert(index: Clock, text: string, attribute?: Attribute): void {
     this.assertAlive();
 
@@ -245,6 +280,60 @@ class WasmDocument implements MirageDocument {
 
       this.check(code);
       return this.readOwnedString(outPtrPtr, outLenPtr);
+    } finally {
+      this.wasm.free(outPtrPtr, 4);
+      this.wasm.free(outLenPtr, 4);
+    }
+  }
+
+  toDelta(revision?: Revision | null): DeltaOp[] {
+    this.assertAlive();
+    const outPtrPtr = this.allocScratch(4);
+    const outLenPtr = this.allocScratch(4);
+
+    try {
+      const code =
+        revision === null || revision === undefined
+          ? this.wasm.text_to_delta(this.handle, outPtrPtr, outLenPtr)
+          : this.wasm.text_to_delta_revision(
+              this.handle,
+              BigInt(revision),
+              outPtrPtr,
+              outLenPtr,
+            );
+
+      this.check(code);
+      return parseDeltaJson(this.readOwnedString(outPtrPtr, outLenPtr));
+    } finally {
+      this.wasm.free(outPtrPtr, 4);
+      this.wasm.free(outLenPtr, 4);
+    }
+  }
+
+  toDeltaRange(
+    start: Clock,
+    end: Clock,
+    options: DeltaRangeOptions = {},
+  ): DeltaOp[] {
+    this.assertAlive();
+    const outPtrPtr = this.allocScratch(4);
+    const outLenPtr = this.allocScratch(4);
+    const revision = options.revision;
+
+    try {
+      this.check(
+        this.wasm.text_to_delta_range(
+          this.handle,
+          BigInt(start),
+          BigInt(end),
+          revision === null || revision === undefined ? 0n : BigInt(revision),
+          revision === null || revision === undefined ? 1 : 0,
+          options.includeLeadingAttrs === false ? 0 : 1,
+          outPtrPtr,
+          outLenPtr,
+        ),
+      );
+      return parseDeltaJson(this.readOwnedString(outPtrPtr, outLenPtr));
     } finally {
       this.wasm.free(outPtrPtr, 4);
       this.wasm.free(outLenPtr, 4);
@@ -379,4 +468,45 @@ class WasmDocument implements MirageDocument {
   private assertAlive(): void {
     if (this.destroyed) throw new Error("Mirage document has been destroyed");
   }
+}
+
+function parseDeltaJson(json: string): DeltaOp[] {
+  const parsed: unknown = JSON.parse(json);
+  if (!Array.isArray(parsed)) {
+    throw new Error("Mirage WASM returned an invalid delta");
+  }
+
+  return parsed.map((op, index) => {
+    if (!isRecord(op) || typeof op.insert !== "string") {
+      throw new Error(`Mirage WASM returned an invalid delta op at ${index}`);
+    }
+
+    const rawAttributes = op.attributes;
+    if (rawAttributes === undefined) {
+      return { insert: op.insert };
+    }
+    if (!isRecord(rawAttributes)) {
+      throw new Error(
+        `Mirage WASM returned invalid delta attributes at ${index}`,
+      );
+    }
+
+    const attributes: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawAttributes)) {
+      if (typeof value !== "string") {
+        throw new Error(
+          `Mirage WASM returned invalid delta attribute value at ${index}`,
+        );
+      }
+      attributes[key] = value;
+    }
+
+    return Object.keys(attributes).length > 0
+      ? { insert: op.insert, attributes }
+      : { insert: op.insert };
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

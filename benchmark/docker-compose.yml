@@ -1,0 +1,18 @@
+services:
+  crdt-benchmarks:
+    build:
+      context: ..
+      dockerfile: benchmark/Dockerfile
+    working_dir: /work
+    environment:
+      CRDT_BENCHMARKS_REPO: ${CRDT_BENCHMARKS_REPO:-https://github.com/dmonad/crdt-benchmarks.git}
+      CRDT_BENCHMARKS_COMMIT: ${CRDT_BENCHMARKS_COMMIT:-796f70250c8c003dfb3a50369d0b2733a760e54d}
+      MIRAGE_WASM_PATH: ${MIRAGE_WASM_PATH:-/work/mirage_zig/zig-out/wasm/mirage.wasm}
+      BENCHMARK_WORKSPACES: ${BENCHMARK_WORKSPACES:-benchmarks/yjs benchmarks/ywasm benchmarks/automerge benchmarks/mirage}
+      MIRAGE_BENCHMARK_FILTER: ${MIRAGE_BENCHMARK_FILTER:-}
+    volumes:
+      - ./.cache:/work/benchmark/.cache
+      - ./mirage:/work/benchmark/mirage:ro
+      - ./scripts:/work/benchmark/scripts:ro
+      - ../mirage_zig/zig-out/wasm:/work/mirage_zig/zig-out/wasm:ro
+    command: ["benchmark/scripts/run-crdt-benchmarks.sh"]

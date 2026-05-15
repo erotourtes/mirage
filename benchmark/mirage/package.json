@@ -1,0 +1,13 @@
+{
+  "name": "mirage-benchmarks",
+  "version": "1.0.0",
+  "description": "Mirage benchmarks",
+  "main": "./run.js",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "start": "node --expose-gc run.js && npm run table",
+    "table": "echo 'Mirage results: \\n\\n' && node \"$CRDT_BENCHMARKS_ROOT/bin/render-table.js\" \"$CRDT_BENCHMARKS_ROOT/benchmarks/results.json\" 6000 mirage"
+  },
+  "license": "MIT"
+}

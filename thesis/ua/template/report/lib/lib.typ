@@ -178,11 +178,13 @@
       #heading(numbering: none)[ПЕРЕЛІК УМОВНИХ СКОРОЧЕНЬ]
     ]
 
+    #set par(leading: 0.65em)
+
     #table(
       columns: (22mm, 1fr),
-      inset: (x: 2mm, y: 1.2mm),
+      inset: (x: 2mm, y: 0.65em),
       column-gutter: 8mm,
-      align: left + horizon,
+      align: left + top,
       stroke: none,
       ..abbreviations.flatten(),
     )

@@ -43,7 +43,7 @@
 ) = [
   #set text(size: 10.5pt)
   #table(
-    columns: (7mm, 10mm, 23mm, 15mm, 10mm, 70mm, 5mm, 5mm, 5mm, 17mm, 1fr),
+    columns: (7mm, 10mm, 23mm, 15mm, 10mm, 1fr, 5mm, 5mm, 5mm, 17mm, 18mm),
     rows: range(8).map(_ => 5mm),
     stroke: 1.2pt,
     inset: (x: 0.8mm, y: 0.4mm),
@@ -76,7 +76,7 @@
     ],
 
     table.cell(colspan: 3)[
-      #text()[Літ.]
+      #text()[Літера]
     ],
     [#text()[Аркуш]],
     [#text()[Аркушів]],

@@ -447,7 +447,7 @@ rle:
 mdn-wasm-text-format:
   type: web
   title: Understanding WebAssembly text format
-  url: 
+  url:
     value: https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Understanding_the_text_format#webassembly_memory
     date: 2026-05-10
 
@@ -494,7 +494,7 @@ npm-weak-links:
   serial-number:
     doi: 10.1145/3510457.3513044
     isbn: 9781450392266
-  url: 
+  url:
     value: https://doi.org/10.1145/3510457.3513044
     date: 2026-05-14
 
@@ -562,11 +562,4 @@ crdt-benchmarks:
   title: "crdt-benchmarks"
   url:
     value: https://github.com/dmonad/crdt-benchmarks/tree/main
-    date: 2026-05-16
-
-zero-width-joiner:
-  type: Web
-  title: "ZERO WIDTH JOINER"
-  url:
-    value: https://unicode-explorer.com/c/200D
     date: 2026-05-16

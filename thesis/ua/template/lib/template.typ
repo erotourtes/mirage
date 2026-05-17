@@ -5,7 +5,7 @@
 #import "../front_matter/title.typ": default_title_meta, title_page
 #import "../front_matter/annotation.typ": annotation_page
 #import "heading.typ": heading_config
-#import "theme.typ": figure_caption_rules
+#import "theme.typ": code, figure_caption_rules
 
 
 #let thesis_template(
@@ -20,7 +20,7 @@
   // adds spacing between list items
   #show selector.or(list.item): block
   #set text(lang: "uk", region: "UA")
-  #show figure.where(kind: table): set block(breakable: true)
+  #show raw.where(block: true): code
 
   #title_page(
     meta: default_title_meta,
@@ -120,7 +120,71 @@
   }
 }
 
-#let llink(..args) = {
+#let code_listing(body, target: none, caption: none) = [
+  #figure(
+    body,
+    kind: image,
+    supplement: [Рисунок],
+    caption: caption,
+  ) #target
+]
+
+#let code_ref(target, see: false, parens: false, custom: none) = {
+  let content = if custom != none {
+    ref(target, supplement: custom)
+  } else if see {
+    ref(target, supplement: [див. рис.])
+  } else {
+    ref(target, supplement: [рис.])
+  }
+
+  if parens {
+    [(#content)]
+  } else {
+    content
+  }
+}
+
+#let continued_table(
+  target,
+  caption: none,
+  parts: (),
+  continued-label: [Продовження таблиці],
+  end-label: [Кінець таблиці],
+  ..args,
+) = {
+  let parts = if type(parts) == arguments {
+    (parts,)
+  } else {
+    parts
+  }
+  let part-count = parts.len()
+
+  for (index, part) in parts.enumerate() {
+    if index == 0 {
+      [
+        #figure(
+          table(..args, ..part),
+          caption: caption,
+        ) #target
+      ]
+    } else {
+      let label = if index == part-count - 1 {
+        end-label
+      } else {
+        continued-label
+      }
+
+      [
+        #colbreak()
+        #align(left)[#label #ref(target, supplement: none)]
+        #table(..args, ..part)
+      ]
+    }
+  }
+}
+
+#let un_link(..args) = {
   let content = link(..args)
   show link: underline
 

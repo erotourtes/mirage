@@ -35,7 +35,11 @@
   show figure.where(kind: table): set figure(
     supplement: [Таблиця],
   )
-  show figure.where(kind: table): set figure.caption(position: top)
+  show figure.where(kind: table): it => {
+    set figure.caption(position: top)
+    set block(breakable: true)
+    it
+  }
   show figure.caption.where(kind: table): it => block(
     sticky: true,
     width: 100%,
@@ -65,4 +69,20 @@
     style: style,
     full: full,
   )
+]
+
+#let code(it, stroke: 0.6pt + rgb("#d0d0d0"), inset: (x: 8pt, y: 6pt)) = block(
+  stroke: stroke,
+  inset: inset,
+  radius: 3pt,
+)[
+  #set text(
+    font: (
+      "Hack Nerd Font Mono",
+      "JetBrainsMono NFM",
+    ),
+    size: 11pt,
+  )
+  #set par(leading: 0.9em)
+  #it
 ]

@@ -1,6 +1,7 @@
 doc
 
 *.pdf
+!thesis/ua/diagrams/*.pdf
 benchmark/.cache/*
 !benchmark/.cache/.gitkeep
 

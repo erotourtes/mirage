@@ -16,7 +16,7 @@
 #let font_main = "Times New Roman"
 
 #let body_text_size = 14pt
-#let body_par_leading = 0.62em
+#let body_par_leading = 1.0em
 #let body_par_indent = 2.5em
 
 #let full_document_code(code: none) = [#code.number #code.short_form]

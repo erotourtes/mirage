@@ -2,7 +2,7 @@
 #import "../../lib/footer.typ": footer_f2a
 #import "../../lib/outline.typ": outline_page
 #import "../../lib/page.typ": bordered_page, cover_page, pad_margins
-#import "../../lib/lib.typ": page_margin
+#import "../../lib/lib.typ": page_margin, body_par_leading
 #import "../../lib/theme.typ": (
   bibliography_section, bibliography_style, bibliography_title,
 )
@@ -46,7 +46,7 @@
 }
 
 #let report_section_heading_render(title, section_number: none) = {
-  let display_body = report_section_display_body(title)
+  let display_body = report_section_display_body(upper(title))
   [
     #if section_number != none {
       counter(figure.where(kind: image)).update(0)
@@ -55,12 +55,12 @@
       counter(heading).update(section_number)
     }
     #colbreak(weak: true)
-    #v(4em - pad_margins.top)
+    #v(pad_margins.top)
     #align(center)[
       #{
-        set par(leading: 1.3em)
-        set par(first-line-indent: 0pt)
-        text(size: 18pt, weight: "bold")[#upper(display_body)]
+        set par(leading: body_par_leading)
+        set par(first-line-indent: 0pt, justify: false)
+        text(size: 18pt, weight: "bold", hyphenate: false)[#display_body]
       }
     ]
     #metadata((
@@ -175,7 +175,7 @@
     document_code: document_code,
   )[
     #align(center)[
-      #heading(numbering: none)[ПЕРЕЛІК СКОРОЧЕНЬ]
+      #heading(numbering: none)[ПЕРЕЛІК УМОВНИХ СКОРОЧЕНЬ]
     ]
 
     #table(

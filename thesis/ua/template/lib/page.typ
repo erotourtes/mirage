@@ -60,10 +60,10 @@
 }
 
 #let pad_margins = (
-  left: 12mm,
-  right: 12mm,
-  top: 12mm,
-  bottom: 8mm,
+  left: 10mm,
+  right: 10mm,
+  top: 10mm,
+  bottom: 10mm,
 )
 
 #let bordered_page(body, footer: none, footer_space: auto) = {

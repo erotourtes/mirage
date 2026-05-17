@@ -1,4 +1,5 @@
 #import "../lib/page.typ": cover_page
+#import "../lib/lib.typ": body_par_leading
 
 #let annotation_page(
   text_ua: none,
@@ -9,7 +10,7 @@
       #text(weight: "bold")[АНОТАЦІЯ]
     ]
     #{
-      set par(justify: true)
+      set par(justify: true, leading: body_par_leading)
       text_ua
     }
 
@@ -18,7 +19,7 @@
       #text(weight: "bold")[ANNOTATION]
     ]
     #{
-      set par(justify: true)
+      set par(justify: true, leading: body_par_leading)
       text_en
     }
   ]

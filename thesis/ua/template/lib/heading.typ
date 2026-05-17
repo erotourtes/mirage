@@ -1,4 +1,4 @@
-#import "lib.typ": body_par_indent, body_text_size
+#import "lib.typ": body_par_indent, body_par_leading, body_text_size
 
 #let plain_heading_text(body) = {
   let value = repr(body)
@@ -36,11 +36,11 @@
       []
     }
 
-    let heading_body = text(size: size, weight: "bold")[
+    let heading_body = text(size: size, weight: "bold", hyphenate: false)[
       #heading_number#if should_number [ ]#upper(plain_heading_text(it.body))
     ]
 
-    block(width: 100%, above: 2em, below: 1em)[
+    block(width: 100%, above: body_par_leading, below: body_par_leading)[
       #align(center)[#heading_body]
     ]
   } else {
@@ -50,11 +50,11 @@
       []
     }
 
-    let heading_body = text(size: size, weight: "bold")[
+    let heading_body = text(size: size, weight: "bold", hyphenate: false)[
       #heading_number#if it.numbering != none [ ]#it.body
     ]
 
-    block(width: 100%, above: 2em, below: 1em)[
+    block(width: 100%, above: body_par_leading, below: body_par_leading)[
       #pad(left: heading_indent)[#heading_body]
     ]
   }

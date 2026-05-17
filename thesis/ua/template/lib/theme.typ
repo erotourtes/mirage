@@ -13,8 +13,13 @@
       all: true,
     ),
   )
+  set table(align: top + center)
   set list(spacing: 0pt)
   set enum(spacing: 0pt)
+  show table.cell: it => {
+    set par(justify: false)
+    it
+  }
   body
 }
 
@@ -25,15 +30,18 @@
     supplement: [Рисунок],
     gap: 14pt,
   )
+  show figure.where(kind: image): set block(breakable: false)
 
   show figure.where(kind: table): set figure(
     supplement: [Таблиця],
   )
   show figure.where(kind: table): set figure.caption(position: top)
-  show figure.caption.where(kind: table): it => align(left)[
-    #box(
-      inset: (left: body_par_leading - 8pt),
-    )[
+  show figure.caption.where(kind: table): it => block(
+    sticky: true,
+    width: 100%,
+    inset: (left: body_par_indent),
+  )[
+    #align(left)[
       #it
     ]
   ]

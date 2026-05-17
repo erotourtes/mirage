@@ -14,6 +14,10 @@ Run this command from root of the repo to run the benchmarks
 docker compose -f benchmark/docker-compose.yml run --rm --build crdt-benchmarks
 ```
 
+<details>
+
+<summary>Results</summary>
+
 ```text
 N = 6000                                                                   | yjs              | ywasm            | automerge        |            mirage|
 | :- |  -: | -: | -: | -:  |
@@ -95,3 +99,11 @@ N = 6000                                                                   | yjs
 |[B4] Apply real-world editing dataset (parseTime)                         |            70 ms |            28 ms |         2,207 ms |         2,745 ms |
 |[B4] Apply real-world editing dataset (memUsed)                           |           3.2 MB |              0 B |              0 B |              0 B |
 ```
+
+</details>
+
+#### Scripts
+
+`scripts/pdf-visual-diff.sh` shows the difference between two pdf
+
+![pdf](./public/pdf_diff.png)

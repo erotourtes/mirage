@@ -4,8 +4,13 @@
 )
 #import "../front_matter/title.typ": default_title_meta, title_page
 #import "../front_matter/annotation.typ": annotation_page
+#import "../appendix/content.typ": (
+  appendix_d1_meta, appendix_d2_meta, appendix_d3_meta,
+)
 #import "heading.typ": heading_config
 #import "theme.typ": code, figure_caption_rules
+
+#let todo(body: [todo]) = text(fill: red, weight: "bold")[#body]
 
 
 #let thesis_template(
@@ -45,6 +50,9 @@
       lower([#form.title (#form.note)])
     }
   }
+  #let linked_form = (code, target) => {
+    link(target)[#long_form(code)]
+  }
 
   #assignment_pages(
     meta: default_assignment_meta,
@@ -58,9 +66,9 @@
     due_date: thesis.assignment.due_date,
     input_data: thesis.assignment.input_data,
     graphics: [
-      #long_form(thesis.document.codes.d1),
-      #long_form(thesis.document.codes.d2),
-      #long_form(thesis.document.codes.d3),
+      #linked_form(thesis.document.codes.d1, appendix_d1_meta.start_label),
+      #linked_form(thesis.document.codes.d2, appendix_d2_meta.start_label),
+      #linked_form(thesis.document.codes.d3, appendix_d3_meta.start_label),
     ],
     norm_controller: thesis.document.norm_controller,
     issue_date: thesis.assignment.issue_date,

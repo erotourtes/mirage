@@ -45,8 +45,19 @@
   }
 }
 
+#let report_section_outline_body(title) = {
+  let prefix = "Розділ "
+  let parts = title.split(". ")
+  if title.starts-with(prefix) and parts.len() > 1 {
+    [Розділ #parts.first().slice(prefix.len()) #parts.slice(1).join(". ")]
+  } else {
+    title
+  }
+}
+
 #let report_section_heading_render(title, section_number: none) = {
   let display_body = report_section_display_body(upper(title))
+  let outline_body = upper(report_section_outline_body(title))
   [
     #if section_number != none {
       counter(figure.where(kind: image)).update(0)
@@ -66,7 +77,7 @@
     #metadata((
       level: 1,
       numbering: none,
-      body: upper(title),
+      body: outline_body,
     )) #report_labels.header #metadata((
       level: 1,
       numbering: none,
@@ -114,6 +125,8 @@
       title,
       section_number: report_section_number(title),
     )
+  } else if it.level == 1 {
+    [#colbreak(weak: true) #it #metadata(it) #report_labels.header]
   } else {
     [#it #metadata(it) #report_labels.header]
   }

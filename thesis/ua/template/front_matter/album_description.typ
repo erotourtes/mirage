@@ -1,4 +1,6 @@
-#import "../lib/lib.typ": code_long_form, full_document_code, page_range_sheet_count
+#import "../lib/lib.typ": (
+  code_long_form, full_document_code, page_range_sheet_count,
+)
 #import "../lib/page.typ": standard_page
 #import "../technical_task/lib/index.typ": technical_task_labels
 #import "../report/lib/index.typ": report_labels
@@ -158,7 +160,9 @@
         rowspan: 3,
         align: center + horizon,
         inset: 7mm,
-      )[#text(style: "italic")[#topic\ #code_long_form(code: codes.album_description)]],
+      )[#text(style: "italic")[#topic\ #code_long_form(
+          code: codes.album_description,
+        )]],
       table.cell(colspan: 3)[Літ.], [Аркуш], [Аркушів],
       table.cell(colspan: 2)[#text(weight: "bold")[Перевір.]],
       [#examined_by],

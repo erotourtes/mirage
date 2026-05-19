@@ -90,8 +90,7 @@ $b'$ yields the same result as applying $b$ followed by $a'$. (see
 
 #figure(
   stack(
-    diagrams.ot-basic,
-    diagrams.ot-transformed,
+    diagrams.ot-basic, diagrams.ot-transformed,
     dir: ltr,
     spacing: 2em,
   ),
@@ -883,8 +882,8 @@ Rendering walks the sequence from left to right. When it encounters a format
 item, it updates the currently active attributes. When it encounters a
 non-deleted string item, it emits the text with the attributes that are active
 at that point. The same traversal can therefore produce plain text by ignoring
-active attributes, or attributed delta @delta-text-format operations by attaching the active
-attributes to each emitted text fragment.
+active attributes, or attributed delta @delta-text-format operations by
+attaching the active attributes to each emitted text fragment.
 
 Restore markers are needed when formatting only a range. If an attribute had a
 previous value after the range, the implementation restores that value;

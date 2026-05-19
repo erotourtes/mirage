@@ -2,7 +2,7 @@
 #import "../../lib/footer.typ": footer_f2a
 #import "../../lib/outline.typ": outline_page
 #import "../../lib/page.typ": bordered_page, cover_page, pad_margins
-#import "../../lib/lib.typ": page_margin, body_par_leading
+#import "../../lib/lib.typ": body_par_leading, page_margin
 #import "../../lib/theme.typ": (
   bibliography_section, bibliography_style, bibliography_title,
 )
@@ -111,7 +111,7 @@
         columns: (1fr, auto),
         column-gutter: 6mm,
         align: (center + horizon, right + horizon),
-        [#it.body,],
+        [#it.body],
         [#context numbering(it.numbering, ..counter(math.equation).get())],
       )
     ]

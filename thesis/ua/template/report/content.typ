@@ -1,8 +1,8 @@
 #import "lib/index.typ": (
-  report_abbreviations_page, report_bibliography_page, report_equation_numbering,
-  report_equation_rules, report_figure_numbering, report_heading_rules,
-  report_labels, report_outline_page, report_page, report_table_numbering,
-  report_title_page,
+  report_abbreviations_page, report_bibliography_page,
+  report_equation_numbering, report_equation_rules, report_figure_numbering,
+  report_heading_rules, report_labels, report_outline_page, report_page,
+  report_table_numbering, report_title_page,
 )
 #import "../lib/lib.typ": code_long_form, full_document_code
 #import "../lib/theme.typ": bibliography_style

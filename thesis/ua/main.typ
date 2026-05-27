@@ -16,7 +16,6 @@
   document: (
     head_name: [Артем ВОЛОКИТА],
     approved_by: [], // intentionally empty
-    norm_controller: [Селіванов В. Л.],
     city: [Київ],
     year: [2026],
     codes: (
@@ -69,19 +68,34 @@
     genitive_name: [Сірика Максима Олександровича],
   ),
   advisor: (
-    title_line: [ст. наук. співроб., канд. наук, Долголенко О. М.],
+    title_line: [
+      #move(dy: 1.5pt)[
+        #text(size: 12.5pt)[
+          доц. кафедри ОТ ФІОТ, к.т.н., с.н.с. Долголенко О. М.
+        ]
+      ]
+    ],
+    title_line_reversed: [Долголенко Олександр Миколайович, к.т.н., с.н.с.],
     full_name: [Долголенко Олександр Миколайович],
     sign_name: [Олександр ДОЛГОЛЕНКО],
     initials: [Долголенко О. М.],
   ),
   consultant: (
-    title_line: [доц. Селіванов В. Л.],
+    initials: [Коренко Д. В.],
+    title_line: [
+      #move(dy: 1.5pt)[
+        #text(size: 12.5pt)[
+          асистент кафедри ОТ Коренко Д. В.
+        ]
+      ]
+    ],
   ),
   reviewer: (
+    full_name: [Щербина Олександр Андрійович],
     title_line: [
-      #move(dy: 4pt)[
-        #text(size: 9pt)[
-          доц., к.т.н., доц. кафедри СПСКС ФПМ Щербина Олександр Андрійович
+      #move(dy: 1.5pt)[
+        #text(size: 12.5pt)[
+          доц. кафедри СПСКС ФПМ, к.т.н., доц. Щербина О. А.
         ]
       ]
     ],
@@ -1803,7 +1817,6 @@
     parens: true,
   ).
 
-  #colbreak()
   #code_listing(
     target: <lst:demo-run>,
     caption: [Запуск демонстраційного редактора],

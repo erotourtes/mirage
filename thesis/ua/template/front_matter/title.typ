@@ -1,7 +1,7 @@
 #import "../lib/lib.typ": gendered, signature_field, under_field, year_field
 #import "../lib/page.typ": cover_page
 
-#let is_practice = true
+#let is_practice = false
 
 #let default_title_meta = (
   university_line: [НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\ “КИЇВСЬКИЙ
@@ -48,7 +48,7 @@
             align: horizon,
             [ #signature_field() ],
             [
-              #under_field(start: 20mm)[ #head_name ]
+              #under_field(start: 12mm)[ #head_name ]
             ],
           )
           #align(right)[
@@ -117,7 +117,7 @@
           #grid(
             columns: (auto, auto, 1fr, 5mm, auto),
             column-gutter: 2mm,
-            [Концультант],
+            [Консультант],
             [#under_field(caption: [(назва розділу)])[(нормконтроль)]],
             [
               #under_field(

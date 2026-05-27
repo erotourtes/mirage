@@ -76,7 +76,7 @@
           align: horizon,
           [ #signature_field() ],
           [
-            #under_field(start: 20mm)[ #head_name ]
+            #under_field(start: 12mm)[ #head_name ]
           ],
         )
         #align(right)[

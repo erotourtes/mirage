@@ -10,7 +10,7 @@
 #import "heading.typ": heading_config
 #import "theme.typ": code, figure_caption_rules
 
-#let todo(body: [todo]) = text(fill: red, weight: "bold")[#body]
+#let todo(body: [todo]) = highlight(text(fill: red, weight: "bold")[#body])
 
 
 #let thesis_template(
@@ -60,7 +60,7 @@
     student_name: thesis.student.full_name,
     student_name_genitive: thesis.student.genitive_name,
     advisor_name: thesis.advisor.sign_name,
-    advisor_line: thesis.advisor.full_name,
+    advisor_line: thesis.advisor.title_line_reversed,
     head_name: thesis.document.head_name,
     order_line: thesis.assignment.order_line,
     due_date: thesis.assignment.due_date,
@@ -70,7 +70,7 @@
       #linked_form(thesis.document.codes.d2, appendix_d2_meta.start_label),
       #linked_form(thesis.document.codes.d3, appendix_d3_meta.start_label),
     ],
-    norm_controller: thesis.document.norm_controller,
+    norm_controller: thesis.consultant.initials,
     issue_date: thesis.assignment.issue_date,
     calendar: thesis.assignment.calendar,
     student_sign_name: thesis.student.sign_name,

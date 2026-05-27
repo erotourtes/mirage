@@ -16,6 +16,8 @@
 #let font_main = "Times New Roman"
 
 #let body_text_size = 14pt
+// WUT: all the diploma templates
+// are not using 1.5 line spacing
 #let body_par_leading = 1.0em
 #let body_par_indent = 2.5em
 

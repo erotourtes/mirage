@@ -15,15 +15,25 @@
   }
 ]
 
-#let first_table_row(topic: none, code: none, sheets: none, format: [A4]) = (
-  [],
-  [#align(center)[#text(weight: "bold")[#format]]],
-  [#text(weight: "bold")[#code]],
-  [#topic],
-  [#align(center)[#sheets]],
-  [],
-  [],
-)
+#let first_table_row(
+  topic: none,
+  code: none,
+  sheets: none,
+  target: none,
+  format: [A4],
+) = {
+  let linked(body) = if target == none { body } else { link(target)[#body] }
+
+  (
+    [],
+    [#align(center)[#text(weight: "bold")[#format]]],
+    [#text(weight: "bold")[#linked(code)]],
+    [#linked(topic)],
+    [#align(center)[#sheets]],
+    [],
+    [],
+  )
+}
 
 #let first_table_empty_row = (
   [],
@@ -44,6 +54,7 @@
       topic: entry.topic,
       code: entry.code,
       sheets: entry.sheets,
+      target: entry.target,
     )
     let repeat = if (i < 2) { 4 } else { 5 }
     for i in range(1, repeat + 1) {
@@ -64,6 +75,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.technical_task)],
       code: full_document_code(code: codes.technical_task),
+      target: technical_task_labels.page_start,
       sheets: page_range_sheet_count(
         start_label: technical_task_labels.page_start,
         end_label: technical_task_labels.page_end,
@@ -72,6 +84,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.report)],
       code: full_document_code(code: codes.report),
+      target: report_labels.page_start,
       sheets: page_range_sheet_count(
         start_label: report_labels.page_start,
         end_label: report_labels.page_end,
@@ -80,6 +93,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d1)],
       code: full_document_code(code: codes.d1),
+      target: appendix_d1_meta.start_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d1_meta.start_label,
         end_label: appendix_d1_meta.end_label,
@@ -88,6 +102,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d2)],
       code: full_document_code(code: codes.d2),
+      target: appendix_d2_meta.start_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d2_meta.start_label,
         end_label: appendix_d2_meta.end_label,
@@ -96,6 +111,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d3)],
       code: full_document_code(code: codes.d3),
+      target: appendix_d3_meta.start_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d3_meta.start_label,
         end_label: appendix_d3_meta.end_label,
@@ -104,6 +120,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d4)],
       code: full_document_code(code: codes.d4),
+      target: appendix_d4_meta.start_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d4_meta.start_label,
         end_label: appendix_d4_meta.end_label,

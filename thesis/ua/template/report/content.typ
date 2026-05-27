@@ -36,7 +36,7 @@
     document_code: full_document_code(code: thesis.document.codes.report),
     implemented_by: thesis.student.initials,
     reviewed_by: thesis.advisor.initials,
-    norm_controller: thesis.document.norm_controller,
+    norm_controller: thesis.consultant.initials,
     approved_by: thesis.document.approved_by,
   )
 

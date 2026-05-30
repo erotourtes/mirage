@@ -90,7 +90,8 @@ $b'$ yields the same result as applying $b$ followed by $a'$. (see
 
 #figure(
   stack(
-    diagrams.ot-basic, diagrams.ot-transformed,
+    diagrams.ot-basic,
+    diagrams.ot-transformed,
     dir: ltr,
     spacing: 2em,
   ),
@@ -119,7 +120,7 @@ Joseph Gentle (former Google Wave OT engineer) also noted:
   block: true,
   attribution: [Joseph Gentle @ot-hacker-news-jospeh-gentle],
 )[
-  ... about OT - it gets crazy complicated if you implement it in a distributed
+  ... about OT -- it gets crazy complicated if you implement it in a distributed
   fashion. But implementing it in a centralized fashion is actually not so bad.
   Its the perfect choice for google docs.
 ]

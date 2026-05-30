@@ -93,7 +93,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d1)],
       code: full_document_code(code: codes.d1),
-      target: appendix_d1_meta.start_label,
+      target: appendix_d1_meta.title_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d1_meta.start_label,
         end_label: appendix_d1_meta.end_label,
@@ -102,7 +102,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d2)],
       code: full_document_code(code: codes.d2),
-      target: appendix_d2_meta.start_label,
+      target: appendix_d2_meta.title_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d2_meta.start_label,
         end_label: appendix_d2_meta.end_label,
@@ -111,7 +111,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d3)],
       code: full_document_code(code: codes.d3),
-      target: appendix_d3_meta.start_label,
+      target: appendix_d3_meta.title_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d3_meta.start_label,
         end_label: appendix_d3_meta.end_label,
@@ -120,7 +120,7 @@
     (
       topic: [#topic\ #code_long_form(code: codes.d4)],
       code: full_document_code(code: codes.d4),
-      target: appendix_d4_meta.start_label,
+      target: appendix_d4_meta.title_label,
       sheets: page_range_sheet_count(
         start_label: appendix_d4_meta.start_label,
         end_label: appendix_d4_meta.end_label,

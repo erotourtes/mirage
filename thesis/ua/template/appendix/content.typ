@@ -15,6 +15,7 @@
         start_label: meta.start_label,
         end_label: meta.end_label,
       ),
+      title_label: meta.title_label,
     )
 
     #appendix_page(
@@ -33,6 +34,7 @@
 #let appendix_d1_meta = (
   number: [1],
   code_key: "d1",
+  title_label: <appendix_d1_title>,
   start_label: <appendix_d1_start>,
   end_label: <appendix_d1_end>,
 )
@@ -40,6 +42,7 @@
 #let appendix_d2_meta = (
   number: [2],
   code_key: "d2",
+  title_label: <appendix_d2_title>,
   start_label: <appendix_d2_start>,
   end_label: <appendix_d2_end>,
 )
@@ -47,6 +50,7 @@
 #let appendix_d3_meta = (
   number: [3],
   code_key: "d3",
+  title_label: <appendix_d3_title>,
   start_label: <appendix_d3_start>,
   end_label: <appendix_d3_end>,
 )
@@ -54,6 +58,7 @@
 #let appendix_d4_meta = (
   number: [4],
   code_key: "d4",
+  title_label: <appendix_d4_title>,
   start_label: <appendix_d4_start>,
   end_label: <appendix_d4_end>,
 )

@@ -237,10 +237,10 @@
 
     #v(5mm)
     #align(center)[
-      на тему: «#underline[#emph(topic)]»
+      на тему: "#underline[#emph(topic)]"
     ]
 
     #v(1fr)
-    #align(center)[#city - #year]
+    #align(center)[#city -- #year р.]
   ]
 }

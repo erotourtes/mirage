@@ -66,9 +66,9 @@
     due_date: thesis.assignment.due_date,
     input_data: thesis.assignment.input_data,
     graphics: [
-      #linked_form(thesis.document.codes.d1, appendix_d1_meta.start_label),
-      #linked_form(thesis.document.codes.d2, appendix_d2_meta.start_label),
-      #linked_form(thesis.document.codes.d3, appendix_d3_meta.start_label),
+      #linked_form(thesis.document.codes.d1, appendix_d1_meta.title_label),
+      #linked_form(thesis.document.codes.d2, appendix_d2_meta.title_label),
+      #linked_form(thesis.document.codes.d3, appendix_d3_meta.title_label),
     ],
     norm_controller: thesis.consultant.initials,
     issue_date: thesis.assignment.issue_date,

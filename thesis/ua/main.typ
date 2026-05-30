@@ -15,14 +15,14 @@
   topic: [Модуль синхронізації текстових даних у розподілених системах],
   document: (
     head_name: [Артем ВОЛОКИТА],
-    approved_by: [], // intentionally empty
+    approved_by: [Волокита А. М.],
     city: [Київ],
     year: [2026],
     codes: (
       album_description: (
         number: [ІАЛЦ.467100.001],
         short_form: [ОА],
-        form: (title: [Технічне завдання], note: none),
+        form: (title: [Опис альбому], note: none),
       ),
       technical_task: (
         number: [ІАЛЦ.467100.002],
@@ -176,6 +176,11 @@
       вебсередовищі розроблено TypeScript-обгортку та демонстраційний
       застосунок. Коректність основних властивостей перевірено модульними,
       сценарними та рандомізованими fuzz-тестами.
+
+      *Ключові слова:* розподілені системи, синхронізація текстових даних,
+      спільне редагування документів, конфліктно-вільні репліковані типи даних
+      (CRDT), збіжність, автономна робота, peer-to-peer-синхронізація,
+      local-first-застосунки, WebAssembly, Zig, TypeScript.
     ],
     text_en: [
       The bachelor's diploma project develops a module for synchronizing text
@@ -188,24 +193,29 @@
       and a demonstration application were developed for use in a web
       environment. The correctness of the main properties was verified using
       unit tests, scenario tests, and randomized fuzz tests.
+
+      *Keywords:* distributed systems, text data synchronization, collaborative
+      document editing, conflict-free replicated data types (CRDT), convergence,
+      offline operation, peer-to-peer synchronization, local-first applications,
+      WebAssembly, Zig, TypeScript.
     ],
   ),
   assignment: (
     order_line: [#todo()],
-    due_date: [#todo()],
+    due_date: ["30" травня 2026 р.],
     input_data: [технічна документація, теоретичні дані],
-    issue_date: [13.04.2026],
+    issue_date: ["13" квітня 2026 р.],
     calendar: (
       ([Затвердження теми проєкту], [02.02.2026-19.04.2026], []),
       ([Вивчення та аналіз завдання], [20.04.2026-26.04.2026], []),
       (
         [Розробка архітектури та загальної структури системи],
-        [26.04.2026-30.04.2026],
+        [27.04.2026-30.04.2026],
         [],
       ),
-      ([Розробка структур окремих підсистем], [01.05.2026-07.05.2026], []),
+      ([Розробка структур окремих підсистем], [01.05.2026-03.05.2026], []),
       ([Програмна реалізація системи], [04.05.2026-15.05.2026], []),
-      ([Оформлення пояснювальної записки], [15.05.2026-24.05.2026], []),
+      ([Оформлення пояснювальної записки], [16.05.2026-24.05.2026], []),
       ([Захист програмного продукту], [05.06.2026], []),
       ([Передзахист], [08.06.2026], []),
       ([Захист], [15.06.2026], []),
@@ -237,10 +247,10 @@
   = Причини для розробки
 
   Підставою для розробки є завдання на виконання бакалаврського дипломного
-  проєкту за темою «#thesis.topic» спеціальності 121 "Інженерія програмного
+  проєкту за темою "#thesis.topic" спеціальності 121 "Інженерія програмного
   забезпечення", затверджене кафедрою обчислювальної техніки Національного
-  технічного університету України «Київський політехнічний інститут імені Ігоря
-  Сікорського».
+  технічного університету України "Київський політехнічний інститут імені Ігоря
+  Сікорського".
 
   = Мета та призначення розробки
 
@@ -298,19 +308,22 @@
 
   Розробка виконується за такими етапами:
 
-  #let table_row = row => (row.at(0), row.at(1))
-
   #table(
     columns: (9mm, 1fr, 55mm),
     inset: (x: 3pt, y: 4pt),
     align: horizon + left,
     table.header([№], [Назва етапу], [Термін виконання]),
-    [1], ..table_row(thesis.assignment.calendar.at(0)),
-    [2], ..table_row(thesis.assignment.calendar.at(1)),
-    [3], ..table_row(thesis.assignment.calendar.at(2)),
-    [4], ..table_row(thesis.assignment.calendar.at(3)),
-    [5], ..table_row(thesis.assignment.calendar.at(4)),
-    [6], ..table_row(thesis.assignment.calendar.at(5)),
+    ..thesis
+      .assignment
+      .calendar
+      .enumerate()
+      .filter(((index, row)) => index + 1 < 7)
+      .map(((index, row)) => (
+        [#calc.round(index + 1)],
+        row.at(0),
+        row.at(1),
+      ))
+      .flatten(),
   )
 ]
 
@@ -833,11 +846,12 @@
 
   === JavaScript та TypeScript
 
-  JavaScript є природним середовищем вебзастосунків, тому реалізація всього
-  модуля цією мовою дала б найпростішу інтеграцію з інтерфейсом користувача.
-  TypeScript додає до JavaScript статичну перевірку типів і водночас зберігає
-  JavaScript як модель виконання, оскільки після компіляції типи стираються, а
-  поведінка програми залишається поведінкою JavaScript @typescript-handbook.
+  JavaScript є природною мовою для розроблення вебзастосунків, тому реалізація
+  всього модуля цією мовою забезпечила б найпростішу інтеграцію з інтерфейсом
+  користувача. TypeScript додає до JavaScript статичну перевірку типів і
+  водночас зберігає JavaScript як модель виконання, оскільки після компіляції
+  типи стираються, а поведінка програми залишається поведінкою JavaScript
+  @typescript-handbook.
 
   Для зовнішньої межі це перевага. TypeScript добре підходить для опису
   публічного API, типів параметрів і результатів. Саме тому у проєкті TypeScript
@@ -1927,7 +1941,7 @@
   просторів даних. Наприклад, простір UUID версії 4 містить приблизно
   $2^122 approx 5.3 times 10^36$ можливих значень, тому його можна показувати
   лише через віртуалізоване представлення, а не через повне створення всіх
-  елементів. Реалізацію цієї ідеї можна дослідити на веб-сайті #un_link("https://everyuuid.com/")[everyuuid.com].
+  елементів. Реалізацію цієї ідеї можна дослідити на вебсайті #un_link("https://everyuuid.com/")[everyuuid.com].
 
   Для зручності прототип зберігає стан сесії в `localStorage` і синхронізує
   відкриті вкладки через `BroadcastChannel`. Це слід відрізняти від повноцінного
@@ -2342,7 +2356,7 @@
     dy: 0pt,
     float: true,
   )[
-    #image("./diagrams/d1.drawio.pdf", width: 190mm),
+    #image("./diagrams/d1.drawio.pdf", width: 190mm)
   ]
 ]
 
@@ -2354,7 +2368,7 @@
     dy: 0pt,
     float: true,
   )[
-    #image("./diagrams/d2.drawio.pdf", width: 174mm),
+    #image("./diagrams/d2.drawio.pdf", width: 174mm)
   ]
 ]
 
@@ -2362,9 +2376,10 @@
   thesis: thesis,
 )[
   #align(center + horizon)[
-    #rotate(90deg, reflow: true)[
-      #image("./diagrams/d3.drawio.pdf", width: 260mm),
-    ]
+    // wut, you're not allowed to rotate figures??
+    // #rotate(90deg, reflow: true)[
+    #image("./diagrams/d3.drawio.pdf", width: 190mm)
+    // ]
   ]
 ]
 

@@ -13,6 +13,8 @@
   bottom: 5mm,
 )
 
+#let page_outline_stroke = 2pt
+
 #let font_main = "Times New Roman"
 
 #let body_text_size = 14pt

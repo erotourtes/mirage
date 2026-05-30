@@ -11,8 +11,12 @@
   city: none,
   year: none,
   sheet_count: none,
+  title_label: none,
 ) = {
   cover_page(right: page_margin.right)[
+    #if title_label != none [
+      #metadata("title") #title_label
+    ]
     #align(center)[
       #v(30mm)
       #text(size: 18pt, weight: "bold")[ДОДАТОК #number]
@@ -29,7 +33,7 @@
       #text(size: 16pt)[Аркушів #sheet_count]
 
       #v(1fr)
-      #text(size: 14pt, weight: "bold")[#city #year р]
+      #text(size: 14pt, weight: "bold")[#city -- #year р.]
     ]
   ]
 }

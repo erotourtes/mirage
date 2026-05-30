@@ -1,4 +1,6 @@
-#import "lib.typ": body_text_size, font_main, page_margin, page_size
+#import "lib.typ": (
+  body_text_size, font_main, page_margin, page_outline_stroke, page_size,
+)
 #import "theme.typ": document_text_rules
 
 #let footer_slot(footer: none, height: none) = {
@@ -76,7 +78,7 @@
       #box(
         width: page_size.width - page_margin.left - page_margin.right,
         height: page_size.height - page_margin.top - page_margin.bottom,
-        stroke: 2pt,
+        stroke: page_outline_stroke,
       )
     ],
     footer: footer,

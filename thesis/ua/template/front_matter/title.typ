@@ -67,6 +67,7 @@
 
       #v(7mm)
 
+      #let signature_gap = 3mm
       #stack(
         spacing: 14pt,
         [#text[на тему:] #under_field()[#topic]],
@@ -87,7 +88,7 @@
         ],
         [
           #grid(
-            columns: (1fr, 5mm, auto),
+            columns: (1fr, signature_gap, auto),
             column-gutter: 2mm,
             [#under_field(
               caption: [(прізвище, ім'я, по батькові)],
@@ -99,7 +100,7 @@
         ],
         [
           #grid(
-            columns: (auto, 1fr, 5mm, auto),
+            columns: (auto, 1fr, signature_gap, auto),
             column-gutter: 2mm,
             [Керівник],
             [
@@ -115,10 +116,10 @@
         ],
         [
           #grid(
-            columns: (auto, auto, 1fr, 5mm, auto),
+            columns: (auto, auto, 1fr, signature_gap, auto),
             column-gutter: 2mm,
             [Консультант],
-            [#under_field(caption: [(назва розділу)])[(нормконтроль)]],
+            [#under_field(caption: [(назва розділу)])[(нормоконтроль)]],
             [
               #under_field(
                 width: 100%,
@@ -134,7 +135,7 @@
         ],
         [
           #grid(
-            columns: (auto, 1fr, 5mm, auto),
+            columns: (auto, 1fr, signature_gap, auto),
             column-gutter: 2mm,
             [Рецензент],
             [
@@ -172,7 +173,7 @@
       ]
 
       #v(1fr)
-      #align(center)[#city – #year р.]
+      #align(center)[#city -- #year р.]
     ]
   ]
 }

@@ -7,6 +7,7 @@
   [
     #appendix_title_page(
       number: meta.number,
+      letter: meta.letter,
       topic: thesis.topic,
       code: code,
       city: thesis.document.city,
@@ -33,6 +34,7 @@
 
 #let appendix_d1_meta = (
   number: [1],
+  letter: [А],
   code_key: "d1",
   title_label: <appendix_d1_title>,
   start_label: <appendix_d1_start>,
@@ -41,6 +43,7 @@
 
 #let appendix_d2_meta = (
   number: [2],
+  letter: [Б],
   code_key: "d2",
   title_label: <appendix_d2_title>,
   start_label: <appendix_d2_start>,
@@ -49,6 +52,7 @@
 
 #let appendix_d3_meta = (
   number: [3],
+  letter: [В],
   code_key: "d3",
   title_label: <appendix_d3_title>,
   start_label: <appendix_d3_start>,
@@ -57,6 +61,7 @@
 
 #let appendix_d4_meta = (
   number: [4],
+  letter: [Г],
   code_key: "d4",
   title_label: <appendix_d4_title>,
   start_label: <appendix_d4_start>,

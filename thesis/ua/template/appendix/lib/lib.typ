@@ -6,6 +6,7 @@
 
 #let appendix_title_page(
   number: none,
+  letter: none,
   topic: none,
   code: none,
   city: none,
@@ -19,7 +20,7 @@
     ]
     #align(center)[
       #v(30mm)
-      #text(size: 18pt, weight: "bold")[ДОДАТОК #number]
+      #text(size: 18pt, weight: "bold")[ДОДАТОК #letter]
 
       #v(10mm)
       #text(size: 18pt)[#topic]

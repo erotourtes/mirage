@@ -1,10 +1,14 @@
-#import "template/lib/template.typ": (
+#import "templates/kpi-fiot-ot-typst-thesis-template/src/lib/template.typ": (
   code, code_listing, code_ref, continued_table, fig_ref, table_ref,
   thesis_template, todo, un_link,
 )
-#import "template/technical_task/content.typ": technical_task_content
-#import "template/report/content.typ": report_content
-#import "template/appendix/content.typ": (
+#import "templates/kpi-fiot-ot-typst-thesis-template/src/technical_task/content.typ": (
+  technical_task_content,
+)
+#import "templates/kpi-fiot-ot-typst-thesis-template/src/report/content.typ": (
+  report_content,
+)
+#import "templates/kpi-fiot-ot-typst-thesis-template/src/appendix/content.typ": (
   d1_content, d2_content, d3_content, d4_content,
 )
 #import "diagrams/diagrams.typ": diagrams
@@ -331,7 +335,7 @@
 
 #report_content(
   thesis: thesis,
-  bibliography_sources: "../../bib.yml",
+  bibliography_sources: "../../../../bib.yml",
 )[
   = Вступ
 
@@ -2389,7 +2393,7 @@
   thesis: thesis,
 )[
   #{
-    let impl = read("../../mirage_zig/src/lib/text/impl.zig")
+    let impl = read("../mirage_zig/src/lib/text/impl.zig")
     code(
       raw(impl, lang: "zig"),
       inset: (x: 0pt, y: 0pt),

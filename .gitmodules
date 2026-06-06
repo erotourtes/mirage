@@ -1,0 +1,3 @@
+[submodule "thesis/templates/kpi-fiot-ot-typst-thesis-template"]
+	path = thesis/templates/kpi-fiot-ot-typst-thesis-template
+	url = git@github.com:erotourtes/kpi-fice-ot-typst-thesis-template.git

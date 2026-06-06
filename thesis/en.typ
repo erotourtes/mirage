@@ -1,5 +1,5 @@
-#import "./ua/diagrams/diagrams.typ": diagrams
-#import "./ua/diagrams/protocol_diagrams.typ": protocol-diagrams
+#import "./diagrams/diagrams.typ": diagrams
+#import "./diagrams/protocol_diagrams.typ": protocol-diagrams
 
 #set page(
   numbering: "1 / 1",
@@ -992,4 +992,4 @@ as Yjs or Automerge. The main limitations are:
   ranges are rejected. Very large documents may therefore require chunking or
   application-level handling.
 
-#bibliography("./ua/bib.yml")
+#bibliography("./bib.yml")

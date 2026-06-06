@@ -104,6 +104,7 @@ N = 6000                                                                   | yjs
 
 #### Scripts
 
-`scripts/pdf-visual-diff.sh` shows the difference between two pdf
+- [pdf-visual-diff.sh](./scripts/pdf-visual-diff.sh) shows the difference between two pdfs
+  ![pdf](./public/pdf_diff.png)
 
-![pdf](./public/pdf_diff.png)
+- [fmt.fish](./scripts/fmt.fish) formats `typ` documents

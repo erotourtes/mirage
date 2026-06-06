@@ -6,3 +6,5 @@ benchmark/.cache/*
 !benchmark/.cache/.gitkeep
 
 pdf-visual-diff
+
+*.gitignore

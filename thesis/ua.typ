@@ -2393,11 +2393,13 @@
 #d4_content(
   thesis: thesis,
 )[
-
+  #let url = "https://github.com/erotourtes/mirage"
+  #v(7.5mm)
   #align(center + horizon)[
-    #image("./pictures/qr.png", width: 180mm)
-    #v(-15mm)
-    #link("https://github.com/erotourtes/mirage")
+    #link(url)[
+      #image("./pictures/qr.png", width: 150mm)
+    ]
+    #link(url)
   ]
   // #{
   //   let impl = read("../mirage_zig/src/lib/text/impl.zig")

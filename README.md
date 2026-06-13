@@ -1,10 +1,19 @@
 #### Mirage
 
-[mirage_zig](./mirage_zig/) - zig implementation of CRDT. Check [README](./mirage_zig/README.md) for more info.
+[mirage_zig](./mirage_zig/) - zig implementation of CRDT. Check
+[README](./mirage_zig/README.md) for more info.
 
-[js/demo](./js/demo/) - is a static website that shows basic editor functionality.
+[js/demo](./js/demo/) - is a static website that shows basic editor
+functionality. See https://erotourtes.github.io/mirage/.
 
 [js/mirage](./js/packages/mirage/) - is a wrapper on top of raw wasm bindings.
+
+[thesis](./thesis/) - contains the [Typst](https://typst.app/docs/) source files
+for the bachelor thesis, based on the
+[KPI template](https://github.com/erotourtes/kpi-fice-ot-typst-thesis-template).
+An example in available the
+[release section](https://github.com/erotourtes/mirage/releases) as
+`thesis.tar.xz`.
 
 #### Benchmarks
 
@@ -104,7 +113,16 @@ N = 6000                                                                   | yjs
 
 #### Scripts
 
-- [pdf-visual-diff.sh](./scripts/pdf-visual-diff.sh) shows the difference between two pdfs
-  ![pdf](./public/pdf_diff.png)
+- [pdf-visual-diff.sh](./scripts/pdf-visual-diff.sh) shows the difference
+  between two pdfs ![pdf](./public/pdf_diff.png)
 
 - [fmt.fish](./scripts/fmt.fish) formats `typ` documents
+
+- [gen-qrcode.fish](./scripts/gen-qrcode.fish) generates QR Code
+
+- [typ-compile.fish](./scripts/typ-compile.fish) compiles
+  [ua.typ](./thesis/ua.typ)
+
+______________________________________________________________________
+
+Formatted with `uvx mdformat --wrap 80 README.md`
